@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLoaderData, useRouteError, useLocation } from
 import type { LoaderFunctionArgs, HeadersFunction } from "react-router";
 import { appContext } from "../server/context.server";
 import { PLANS } from "../core/plans";
+import { Banner, PolarisProvider } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ctx = await appContext(request);
@@ -47,22 +48,21 @@ export default function AppLayout() {
       </div>
     </div>
   );
-  if (d.demo) return body;
-  return <EmbeddedFrame apiKey={d.apiKey}>{body}</EmbeddedFrame>;
+  if (d.demo) return <PolarisProvider value={false}>{body}</PolarisProvider>;
+  return <EmbeddedFrame apiKey={d.apiKey}><PolarisProvider value>{body}</PolarisProvider></EmbeddedFrame>;
 }
 
-// App Bridge + Polaris web components come from the Shopify-provided AppProvider; navigation is Shopify's s-app-nav.
+// AppProvider loads App Bridge and the Polaris web components script (polaris-2.js). PolarisProvider switches app/components/polaris.tsx to s-* elements.
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 function EmbeddedFrame({ apiKey, children }: { apiKey: string; children: React.ReactNode }) {
   return (
     <AppProvider apiKey={apiKey}>
-      {/* @ts-expect-error web components */}
+      {/* @ts-expect-error s-app-nav is App Bridge, not in polaris-types */}
       <s-app-nav>
         {NAV.map((n) => (
-          // @ts-expect-error web components
           <s-link key={n.to} href={n.to}>{n.label}</s-link>
         ))}
-        {/* @ts-expect-error web components */}
+      {/* @ts-expect-error s-app-nav is App Bridge, not in polaris-types */}
       </s-app-nav>
       {children}
     </AppProvider>
@@ -73,9 +73,7 @@ export function ErrorBoundary() {
   const err = useRouteError();
   return (
     <main className="main">
-      <div className="callout callout--bad" role="alert">
-        <span>Something went wrong loading this page. {err instanceof Error ? err.message : ""}</span>
-      </div>
+      <Banner tone="bad" role="alert">Something went wrong loading this page. {err instanceof Error ? err.message : ""}</Banner>
     </main>
   );
 }

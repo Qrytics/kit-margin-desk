@@ -11,6 +11,7 @@ import { kitAvailabilityByLocation } from "../core/locations";
 import { PageHead, Toast, HealthStamp, pct } from "../components/ui";
 import { Ruler } from "../components/Ruler";
 import { VariantPicker } from "../components/VariantPicker";
+import { Banner, Button, Checkbox, Select, TextField } from "../components/polaris";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const ctx = await appContext(request);
@@ -87,7 +88,7 @@ export default function KitEditor() {
     <>
       <PageHead verdict={<>{d.kit.title} {m.marginCents < 0 ? <>loses {money(-m.marginCents)} per kit.</> : <>earns {money(m.marginCents)} per kit.</>}</>}
         sub={<>Landed cost <strong>{money(c.totalCents)}</strong> against a price of {money(price)}. {av.available !== null ? `You can sell ${av.available} right now.` : "No tracked part limits this kit."}</>}>
-        <Link className="btn" to="/app">Back to kits</Link>
+        <Button href="/app">Back to kits</Button>
       </PageHead>
 
       <section className="readout" aria-label="Where the price goes" style={{ marginBottom: 24 }}>
@@ -109,11 +110,11 @@ export default function KitEditor() {
                         <tr key={l.key} className="bom-line">
                           <td><span className="name">{l.label}</span>
                             <div className="sku">{info?.sku ?? ""}{info && !info.exists ? <> <span className="stamp stamp--bad">Broken: deleted in Shopify</span></> : null}{info && info.exists && (!info.tracked || info.continueSelling) ? <> <span className="stamp stamp--warn">Cannot limit this kit</span></> : null}{info && info.costCents == null ? <> <span className="stamp stamp--warn">No cost</span></> : null}</div></td>
-                          <td className="num"><input aria-label={`Quantity of ${l.label}`} type="number" inputMode="decimal" step="0.001" min="0" value={l.qty} aria-invalid={badLine(l)} onChange={(e) => upd(l.key, { qty: e.target.value })} className="input" /></td>
-                          <td><input aria-label={`Unit for ${l.label}`} type="text" value={l.uom} maxLength={12} onChange={(e) => upd(l.key, { uom: e.target.value })} className="input" /></td>
-                          <td className="num"><input aria-label={`Waste percent for ${l.label}`} type="number" step="0.5" min="0" max="100" value={l.wastePct} onChange={(e) => upd(l.key, { wastePct: e.target.value })} className="input" /></td>
+                          <td className="num"><TextField label={`Quantity of ${l.label}`} labelHidden type="number" step="0.001" min="0" value={l.qty} error={badLine(l) ? "Positive, up to 3 decimals" : undefined} onValue={(v) => upd(l.key, { qty: v })} /></td>
+                          <td><TextField label={`Unit for ${l.label}`} labelHidden value={l.uom} onValue={(v) => upd(l.key, { uom: v.slice(0, 12) })} /></td>
+                          <td className="num"><TextField label={`Waste percent for ${l.label}`} labelHidden type="number" step="0.5" min="0" max="100" value={l.wastePct} onValue={(v) => upd(l.key, { wastePct: v })} /></td>
                           <td className="num">{money(Math.round(lineCost(l)))}</td>
-                          <td><button type="button" className="btn btn--quiet btn--small" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} aria-label={`Remove ${l.label}`}>Remove</button></td>
+                          <td><Button variant="quiet" small onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} label={`Remove ${l.label}`}>Remove</Button></td>
                         </tr>
                       );
                     })}
@@ -123,38 +124,28 @@ export default function KitEditor() {
             )}
             <div className="grid-form" style={{ marginTop: 16, alignItems: "end" }}>
               <VariantPicker onPick={addVariant} />
-              <label className="field">Or nest another kit (3 levels max)
-                <select value="" onChange={(e) => { const o = d.others.find((x) => x.id === e.target.value); if (o) setLines((ls) => [...ls, { key: `l${k++}`, componentKitId: o.id, label: `Kit: ${o.title}`, qty: "1", wastePct: "0", uom: "pcs" }]); }}>
-                  <option value="">Choose a kit</option>
-                  {d.others.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
-                </select>
-              </label>
+              <Select label="Or nest another kit (3 levels max)" value="" onValue={(v) => { const o = d.others.find((x) => x.id === v); if (o) setLines((ls) => [...ls, { key: `l${k++}`, componentKitId: o.id, label: `Kit: ${o.title}`, qty: "1", wastePct: "0", uom: "pcs" }]); }}
+                options={[{ value: "", label: "Choose a kit" }, ...d.others.map((o) => ({ value: o.id, label: o.title }))]} />
             </div>
           </section>
 
           <section className="panel" aria-labelledby="extras">
             <h2 id="extras">Kit settings</h2>
             <div className="grid-form">
-              <label className="field">Stock mode
-                <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-                  <option value="assemble_on_order">Assemble on order (stock is virtual)</option>
-                  <option value="pre_assembled">Pre-assembled (kit has real stock)</option>
-                </select>
-              </label>
-              <label className="field">Packaging cost per kit<input type="number" step="0.01" min="0" value={packaging} onChange={(e) => setPackaging(e.target.value)} /></label>
-              <label className="field">Labor minutes per kit<input type="number" step="0.5" min="0" value={labor} onChange={(e) => setLabor(e.target.value)} /><span className="hint">At {money(d.settings.laborRateCents)} an hour.</span></label>
-              <label className="field">Landed uplift %<input type="number" step="0.5" min="0" value={uplift} onChange={(e) => setUplift(e.target.value)} /><span className="hint">Freight and duty on materials.</span></label>
+              <Select label="Stock mode" value={mode} onValue={(v) => setMode(v as typeof mode)} options={[{ value: "assemble_on_order", label: "Assemble on order (stock is virtual)" }, { value: "pre_assembled", label: "Pre-assembled (kit has real stock)" }]} />
+              <TextField label="Packaging cost per kit" type="number" step="0.01" min="0" value={packaging} onValue={setPackaging} />
+              <TextField label="Labor minutes per kit" type="number" step="0.5" min="0" value={labor} onValue={setLabor} hint={`At ${money(d.settings.laborRateCents)} an hour.`} />
+              <TextField label="Landed uplift %" type="number" step="0.5" min="0" value={uplift} onValue={setUplift} hint="Freight and duty on materials." />
             </div>
             {mode === "assemble_on_order" ? (
-              <label className="check" style={{ marginTop: 12 }}><input type="checkbox" checked={manage} onChange={(e) => setManage(e.target.checked)} />
-                <span>Let the app write this kit&apos;s available quantity to Shopify (derived from parts)</span></label>
+              <div style={{ marginTop: 12 }}><Checkbox checked={manage} onChecked={setManage} label="Let the app write this kit's available quantity to Shopify (derived from parts)" /></div>
             ) : null}
             <div className="row" style={{ marginTop: 16 }}>
               <save.Form method="post">
                 <input type="hidden" name="intent" value="save-kit" /><input type="hidden" name="kitId" value={d.kit.id} /><input type="hidden" name="lines" value={payload} />
                 <input type="hidden" name="mode" value={mode} /><input type="hidden" name="packaging" value={packaging} /><input type="hidden" name="laborMinutes" value={labor} />
                 <input type="hidden" name="upliftPct" value={uplift} />{manage ? <input type="hidden" name="manage" value="on" /> : null}
-                <button className="btn btn--primary" disabled={save.state !== "idle" || lines.some(badLine)} data-loading={save.state !== "idle"}>Save kit</button>
+                <Button type="submit" variant="primary" disabled={lines.some(badLine)} loading={save.state !== "idle"}>Save kit</Button>
               </save.Form>
               {lines.some(badLine) ? <span className="hint" role="alert">Fix quantities: positive, up to 3 decimals.</span> : null}
             </div>
@@ -186,29 +177,29 @@ export default function KitEditor() {
               <div><span>Margin at {money(price)}</span><span><strong>{money(m.marginCents)}</strong> ({pct(m.marginPct)}) <HealthStamp health={m.health} /></span></div>
               {compare ? <div><span>Margin at compare-at {money(compare)}</span><span>{pct(marginFor(compare, c.totalCents, t).marginPct)}</span></div> : null}
             </div>
-            {c.missingCosts.length ? <p className="callout callout--warn" role="status" style={{ marginTop: 12 }}>{c.missingCosts.length} part{c.missingCosts.length === 1 ? " has" : "s have"} no cost, so this margin looks better than it is.</p> : null}
+            {c.missingCosts.length ? <Banner tone="warn" role="status" style={{ marginTop: 12 }}>{c.missingCosts.length} part{c.missingCosts.length === 1 ? " has" : "s have"} no cost, so this margin looks better than it is.</Banner> : null}
           </section>
           <section className="panel">
             <h3>What if the price were</h3>
-            <label className="field"><span className="sr-only">Candidate price</span><input type="number" step="0.01" min="0" value={whatIf} placeholder={(price / 100).toFixed(2)} onChange={(e) => setWhatIf(e.target.value)} aria-label="Candidate price" /></label>
+            <TextField label="Candidate price" labelHidden type="number" step="0.01" min="0" value={whatIf} placeholder={(price / 100).toFixed(2)} onValue={setWhatIf} />
             {wi ? <p style={{ marginTop: 8 }}>Margin would be <strong>{money(wi.marginCents)}</strong>, {pct(wi.marginPct)}.</p> : <p className="muted" style={{ marginTop: 8 }}>Type a price to see margin move.</p>}
           </section>
           <section className="panel stack stack--tight">
             <h3>Actions</h3>
             <act.Form method="post"><input type="hidden" name="intent" value="push-cost" /><input type="hidden" name="kitId" value={d.kit.id} />
-              <button className="btn" style={{ whiteSpace: "nowrap" }} disabled={act.state !== "idle"}>Push {money(c.totalCents)} to Shopify cost per item</button></act.Form>
+              <Button type="submit" loading={act.state !== "idle"}>{`Push ${money(c.totalCents)} to Shopify cost per item`}</Button></act.Form>
             <span className="hint">Shopify currently holds {d.shopifyCostCents == null ? "no cost" : money(d.shopifyCostCents)} for this variant.</span>
             {cloneTo ? (
               <act.Form method="post" className="row"><input type="hidden" name="intent" value="clone-kit" /><input type="hidden" name="kitId" value={d.kit.id} /><input type="hidden" name="targetVariantId" value={cloneTo.id} />
-                <span>Clone to <strong>{cloneTo.label}</strong></span><button className="btn btn--primary btn--small">Clone</button><button type="button" className="btn btn--quiet btn--small" onClick={() => setCloneTo(null)}>Cancel</button></act.Form>
+                <span>Clone to <strong>{cloneTo.label}</strong></span><Button type="submit" variant="primary" small>Clone</Button><Button variant="quiet" small onClick={() => setCloneTo(null)}>Cancel</Button></act.Form>
             ) : <VariantPicker label="Clone this kit to another variant" placeholder="Scent or size variant" onPick={(v) => setCloneTo({ id: v.id, label: v.label })} />}
             {mode === "pre_assembled" ? (
               d.canBuild ? (
                 <act.Form method="post" className="stack stack--tight"><input type="hidden" name="intent" value="build" /><input type="hidden" name="kitId" value={d.kit.id} />
-                  <label className="field">Build how many kits?<input name="qty" type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
-                  {d.locations.length > 1 ? <label className="field">Location<select name="locationId">{d.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label> : null}
-                  {act.data?.data?.partial ? <label className="check"><input type="checkbox" name="confirmPartial" value="1" /> Build only {act.data.data.partial} (components run short)</label> : null}
-                  <button className="btn">Build kits</button></act.Form>
+                  <TextField label="Build how many kits?" name="qty" type="number" min="1" value={qty} onValue={setQty} />
+                  {d.locations.length > 1 ? <Select label="Location" name="locationId" options={d.locations.map((l) => ({ value: l.id, label: l.name }))} /> : null}
+                  {act.data?.data?.partial ? <Checkbox name="confirmPartial" label={`Build only ${act.data.data.partial} (components run short)`} /> : null}
+                  <Button type="submit">Build kits</Button></act.Form>
               ) : <p className="muted">Build mode is part of {PLANS.kit_desk_pro.label}. <Link to="/app/pricing">See plans</Link></p>
             ) : null}
           </section>

@@ -4,6 +4,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { appContext } from "../server/context.server";
 import { handleAction } from "../server/route-helpers.server";
 import { Empty, PageHead, Stamp, Toast, signed, when } from "../components/ui";
+import { Button } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { snapshot: s } = await appContext(request);
@@ -39,10 +40,12 @@ export default function Ledger() {
                 <span className="muted">{when(b.at)}</span>
                 {b.undone ? <Stamp tone="quiet">Undone</Stamp> : b.sourceType === "undo" ? <Stamp tone="quiet">Reversal</Stamp> : <Stamp tone={skipped ? "warn" : "ok"}>{skipped ? `${skipped} skipped` : "Applied"}</Stamp>}
                 {!b.undone && b.sourceType !== "undo" ? (
-                  <f.Form method="post"><input type="hidden" name="batchId" value={b.id} />
-                    <button className="btn btn--small" name="intent" value="undo" disabled={f.state !== "idle"}>Undo batch</button>
-                    {stuck ? <button className="btn btn--small btn--danger" name="intent" value="undo-compensate" style={{ whiteSpace: "nowrap", marginLeft: 8 }}>Apply compensating adjustment</button> : null}
-                  </f.Form>
+                  <div>
+                    <span className="row">
+                      <Button small loading={f.state !== "idle"} onClick={() => f.submit({ batchId: b.id, intent: "undo" }, { method: "post" })}>Undo batch</Button>
+                      {stuck ? <Button small variant="danger" onClick={() => f.submit({ batchId: b.id, intent: "undo-compensate" }, { method: "post" })}>Apply compensating adjustment</Button> : null}
+                    </span>
+                  </div>
                 ) : null}
               </span>
             </header>

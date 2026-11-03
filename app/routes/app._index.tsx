@@ -8,6 +8,7 @@ import { explodeBom, indexKits } from "../core/bom";
 import { PLANS } from "../core/plans";
 import { Ruler } from "../components/Ruler";
 import { Empty, HealthStamp, PageHead, pct } from "../components/ui";
+import { Banner, Button, Select, TextField } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { snapshot: s } = await appContext(request);
@@ -56,8 +57,8 @@ export default function KitsHome() {
         verdict={losers > 0 ? <>{losers} {losers === 1 ? "kit is" : "kits are"} losing money on every sale.</> : d.rows.length ? <>Every kit is earning its place.</> : <>Start by naming your first kit.</>}
         sub={d.rows.length ? <>Blended kit margin over 30 days is <strong>{pct(d.blended)}</strong> on {money(d.revenue)} of kit revenue.{d.alerts ? <> <Link to="/app/margin#alerts">{d.alerts} supplier cost {d.alerts === 1 ? "change needs" : "changes need"} a look.</Link></> : null}</> : "A kit is any product made of other products. Pick one and map its parts."}
       >
-        <Link className="btn btn--primary" to="/app/setup">{d.rows.length ? "Add a kit" : "Guided first kit"}</Link>
-        <Link className="btn" to="/app/margin">Open margin desk</Link>
+        <Button variant="primary" href="/app/setup">{d.rows.length ? "Add a kit" : "Guided first kit"}</Button>
+        <Button href="/app/margin">Open margin desk</Button>
       </PageHead>
 
       <ol className="strip" aria-label="Setup progress">
@@ -70,25 +71,18 @@ export default function KitsHome() {
         ))}
       </ol>
 
-      {d.syncPaused ? <div className="callout callout--bad" role="alert" style={{ marginBottom: 24 }}><strong>All sync is paused.</strong> Orders are recorded but no stock is changed.<Link to="/app/settings">Resume in Settings</Link></div> : null}
+      {d.syncPaused ? <Banner tone="bad" role="alert" style={{ marginBottom: 24 }} heading="All sync is paused.">Orders are recorded but no stock is changed. <Link to="/app/settings">Resume in Settings</Link></Banner> : null}
 
       {d.rows.length === 0 ? (
-        <Empty title="No kits yet" action={<Link className="btn btn--primary" to="/app/setup">Create your first kit</Link>}>
+        <Empty title="No kits yet" action={<Button variant="primary" href="/app/setup">Create your first kit</Button>}>
           Kits are existing products. You will keep your listing, SEO and reviews; the app manages the parts behind it.
         </Empty>
       ) : (
         <>
           <div className="row row--between" style={{ marginBottom: 12 }}>
             <div className="row">
-              <label className="field" style={{ minWidth: 220 }}><span className="sr-only" style={{ position: "absolute", left: -9999 }}>Search kits</span>
-                <input type="search" placeholder="Search kit name or SKU" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search kits" />
-              </label>
-              <label className="field" style={{ minWidth: 220 }}>
-                <select value={comp} onChange={(e) => setComp(e.target.value)} aria-label="Filter by component">
-                  <option value="">Any component</option>
-                  {d.components.map((c) => <option key={c.id} value={c.id}>{c.sku ?? c.label}</option>)}
-                </select>
-              </label>
+              <div style={{ minWidth: 220 }}><TextField label="Search kits" labelHidden type="search" placeholder="Search kit name or SKU" value={q} onValue={setQ} /></div>
+              <div style={{ minWidth: 220 }}><Select label="Filter by component" labelHidden value={comp} onValue={setComp} options={[{ value: "", label: "Any component" }, ...d.components.map((c) => ({ value: c.id, label: c.sku ?? c.label }))]} /></div>
             </div>
             <div className="pill-tabs" role="group" aria-label="Filter">
               <button aria-pressed={!losing} onClick={() => setLosing(false)}>All kits</button>

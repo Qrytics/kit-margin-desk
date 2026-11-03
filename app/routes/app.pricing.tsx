@@ -4,6 +4,7 @@ import { appContext } from "../server/context.server";
 import { handleAction } from "../server/route-helpers.server";
 import { PLANS, type PlanKey } from "../core/plans";
 import { PageHead, Stamp, Toast } from "../components/ui";
+import { Button } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { snapshot: s } = await appContext(request);
@@ -37,7 +38,7 @@ export default function Pricing() {
               </ul>
               {current ? <Stamp tone="ok">Your plan</Stamp> : k === "free" ? <span className="muted">Cancel a paid plan from your Shopify admin to return here.</span> : (
                 <f.Form method="post"><input type="hidden" name="plan" value={p.billingName!} />
-                  <button className={`btn ${k === "kit_desk" ? "btn--primary" : ""}`} name="intent" value="subscribe" disabled={f.state !== "idle"}>Start {p.trialDays}-day trial</button></f.Form>
+                  <input type="hidden" name="intent" value="subscribe" /><Button type="submit" variant={k === "kit_desk" ? "primary" : "default"} loading={f.state !== "idle"}>{`Start ${p.trialDays}-day trial`}</Button></f.Form>
               )}
             </section>
           );

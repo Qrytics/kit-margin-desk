@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFetcher } from "react-router";
 import type { Health } from "../core/margin";
+import { Banner, Button, ConfirmModal, ModalTrigger } from "./polaris";
 
 export function PageHead({ verdict, sub, lead, children }: { verdict: ReactNode; sub?: ReactNode; lead?: boolean; children?: ReactNode }) {
   return (
@@ -41,10 +42,10 @@ export function useIntent(action?: string) {
 export function Toast({ result, onClose }: { result: ActionResultLike | null; onClose?: () => void }) {
   if (!result) return null;
   return (
-    <div className={`callout toast ${result.ok ? "callout--ok" : "callout--bad"}`} role={result.ok ? "status" : "alert"}>
-      <span>{result.message}</span>
-      {onClose ? <button type="button" className="btn btn--quiet btn--small" onClick={onClose}>Close</button> : null}
-    </div>
+    <Banner toast tone={result.ok ? "ok" : "bad"} role={result.ok ? "status" : "alert"}>
+      {result.message}
+      {onClose ? <Button variant="quiet" small onClick={onClose}>Close</Button> : null}
+    </Banner>
   );
 }
 
@@ -55,15 +56,20 @@ export function IntentButton({
   small?: boolean; confirm?: string; disabled?: boolean; action?: string;
 }) {
   const { fetcher, toast, busy } = useIntent();
+  const formRef = useRef<HTMLFormElement>(null);
+  const modalId = useId().replace(/:/g, "");
   return (
     <>
-      <fetcher.Form method="post" action={action} onSubmit={(e) => { if (confirm && !window.confirm(confirm)) e.preventDefault(); }} style={{ display: "inline" }}>
+      <fetcher.Form ref={formRef} method="post" action={action} style={{ display: "inline" }}>
         <input type="hidden" name="intent" value={intent} />
         {Object.entries(fields).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-        <button className={`btn${variant !== "default" ? ` btn--${variant}` : ""}${small ? " btn--small" : ""}`} disabled={disabled || busy} data-loading={busy} aria-disabled={disabled || busy}>
-          {children}
-        </button>
+        {confirm ? (
+          <ModalTrigger modalId={modalId} variant={variant} small={small} disabled={disabled || busy}>{children}</ModalTrigger>
+        ) : (
+          <Button type="submit" variant={variant} small={small} disabled={disabled} loading={busy}>{children}</Button>
+        )}
       </fetcher.Form>
+      {confirm ? <ConfirmModal id={modalId} heading="Please confirm" body={confirm} confirmLabel="Confirm" tone={variant === "danger" ? "critical" : undefined} onConfirm={() => formRef.current?.requestSubmit()} /> : null}
       <Toast result={toast} />
     </>
   );

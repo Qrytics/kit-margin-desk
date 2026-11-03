@@ -9,6 +9,7 @@ import { planAllows } from "../core/plans";
 import { canTransition } from "../core/replenish";
 import { toCsv } from "../core/csv";
 import { Empty, IntentButton, PageHead, Stamp, Toast } from "../components/ui";
+import { Button, Select, TextField } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ctx = await appContext(request);
@@ -45,7 +46,7 @@ export default function Replenish() {
   if (!d.allowed) return (
     <>
       <PageHead verdict="Reorder math in kit units is part of Kit Desk Pro." sub="Days of cover per component, driven by kit sales velocity, plus purchase orders that update your costs when received." />
-      <Link className="btn btn--primary" to="/app/pricing">See plans</Link>
+      <Button variant="primary" href="/app/pricing">See plans</Button>
     </>
   );
   const low = d.rows.filter((r) => r.reorder);
@@ -80,7 +81,7 @@ export default function Replenish() {
               <header><strong>{g.supplier}</strong>
                 <create.Form method="post"><input type="hidden" name="intent" value="create-pos" />
                   <input type="hidden" name="items" value={JSON.stringify(g.items.map((i) => ({ variantId: i.variantId, supplierName: g.supplier, qty: i.suggested, costCents: i.lastCostCents ?? 0 })))} />
-                  <button className="btn btn--primary btn--small" disabled={create.state !== "idle"}>Create draft PO</button></create.Form></header>
+                  <Button type="submit" variant="primary" small loading={create.state !== "idle"}>Create draft PO</Button></create.Form></header>
               <ul className="list-plain" style={{ padding: "0 16px" }}>{g.items.map((i) => <li key={i.variantId}><span>{i.label} <span className="sku">{i.sku}</span></span><span><strong>{i.suggested}</strong> units{i.packSize ? ` in packs of ${i.packSize}` : ""}</span></li>)}</ul>
             </div>
           ))}
@@ -92,23 +93,23 @@ export default function Replenish() {
             <div key={p.id} className="batch">
               <header><span><strong>PO #{p.number}</strong>, {p.supplierName}</span>
                 <span className="row"><Stamp tone={p.status === "received" || p.status === "closed" ? "ok" : p.status === "draft" ? "quiet" : "warn"}>{p.status.replace("_", " ")}</Stamp>
-                  <a className="btn btn--small" href={`/app/replenish?po=${p.id}&format=pdf`} download>PDF</a>
-                  <a className="btn btn--small" href={`/app/replenish?po=${p.id}&format=csv`} download>CSV</a>
+                  <Button small href={`/app/replenish?po=${p.id}&format=pdf`} download>PDF</Button>
+                  <Button small href={`/app/replenish?po=${p.id}&format=csv`} download>CSV</Button>
                   {canTransition(p.status, "sent") && p.status === "draft" ? <IntentButton intent="po-status" fields={{ poId: p.id, to: "sent" }} small variant="primary">Mark sent</IntentButton> : null}
-                  {(p.status === "sent" || p.status === "partially_received") ? <button className="btn btn--small" onClick={() => setReceiving(receiving === p.id ? null : p.id)}>Receive</button> : null}
+                  {(p.status === "sent" || p.status === "partially_received") ? <Button small onClick={() => setReceiving(receiving === p.id ? null : p.id)}>Receive</Button> : null}
                   {canTransition(p.status, "closed") ? <IntentButton intent="po-status" fields={{ poId: p.id, to: "closed" }} small variant="quiet">Close</IntentButton> : null}
                 </span></header>
               <ul className="list-plain" style={{ padding: "0 16px" }}>{p.lines.map((l) => (
                 <li key={l.id}><span>{d.variants[l.variantId] ?? l.variantId}</span>
                   <span>{l.qtyReceived} of {l.qtyOrdered} at {money(l.unitCostCents)}
-                    {receiving === p.id ? <input aria-label={`Received quantity for ${d.variants[l.variantId]}`} className="input" style={{ width: 96, marginLeft: 12 }} type="number" min="0" max={l.qtyOrdered - l.qtyReceived} value={received[l.id] ?? ""} placeholder={String(l.qtyOrdered - l.qtyReceived)} onChange={(e) => setReceived({ ...received, [l.id]: e.target.value })} /> : null}</span></li>))}
+                    {receiving === p.id ? <span style={{ display: "inline-block", width: 112, marginLeft: 12, verticalAlign: "middle" }}><TextField label={`Received quantity for ${d.variants[l.variantId]}`} labelHidden type="number" min="0" max={String(l.qtyOrdered - l.qtyReceived)} value={received[l.id] ?? ""} placeholder={String(l.qtyOrdered - l.qtyReceived)} onValue={(v) => setReceived({ ...received, [l.id]: v })} /></span> : null}</span></li>))}
               </ul>
               {receiving === p.id ? (
                 <recv.Form method="post" className="row" style={{ padding: 16 }}>
                   <input type="hidden" name="intent" value="po-receive" /><input type="hidden" name="poId" value={p.id} />
                   <input type="hidden" name="received" value={JSON.stringify(Object.fromEntries(p.lines.map((l) => [l.id, Number(received[l.id] ?? l.qtyOrdered - l.qtyReceived)])))} />
-                  {d.locations.length > 1 ? <label className="field">Receive at<select name="locationId">{d.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label> : null}
-                  <button className="btn btn--primary">Receive into Shopify</button>
+                  {d.locations.length > 1 ? <Select label="Receive at" name="locationId" options={d.locations.map((l) => ({ value: l.id, label: l.name }))} /> : null}
+                  <Button type="submit" variant="primary" loading={recv.state !== "idle"}>Receive into Shopify</Button>
                   <span className="hint">Adds stock at the chosen location, updates the weighted average cost, and spreads freight ({money(p.freightCents)}).</span>
                 </recv.Form>
               ) : null}

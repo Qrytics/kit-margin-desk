@@ -8,6 +8,7 @@ import { catalogFor } from "../server/bulk.server";
 import { scanCatalog } from "../server/shopify-api";
 import { Empty, IntentButton, PageHead, Stamp, Toast, signed } from "../components/ui";
 import { VariantPicker } from "../components/VariantPicker";
+import { Banner, Button } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ctx = await appContext(request, { withOrders: true });
@@ -83,11 +84,11 @@ export default function Setup() {
             <create.Form method="post" className="row">
               <input type="hidden" name="intent" value="create-kit" /><input type="hidden" name="variantId" value={picked.id} />
               <span><strong>{picked.label}</strong> is a kit.</span>
-              <button className="btn btn--primary" disabled={create.state !== "idle"} data-loading={create.state !== "idle"}>Add components</button>
-              <button type="button" className="btn btn--quiet" onClick={() => setPicked(null)}>Pick another</button>
+              <Button type="submit" variant="primary" loading={create.state !== "idle"}>Add components</Button>
+              <Button variant="quiet" onClick={() => setPicked(null)}>Pick another</Button>
             </create.Form>
           )}
-          {create.data && !create.data.ok ? <p role="alert" className="callout callout--bad" style={{ marginTop: 12 }}>{create.data.message}</p> : null}
+          {create.data && !create.data.ok ? <Banner tone="bad" role="alert" style={{ marginTop: 12 }}>{create.data.message}</Banner> : null}
           <p className="muted" style={{ marginTop: 12 }}>Have a spreadsheet? <Link to="/app/settings#csv">Import BOMs from CSV</Link>.</p>
         </section>
 
@@ -96,9 +97,9 @@ export default function Setup() {
           <div className="stack stack--tight">
             <Issue title="Duplicate SKUs" count={d.dupes.length} tone="bad" why="Sync works by variant, but duplicated SKUs are how other apps corrupted stores. Kits that touch these are held back from sync until you fix them or exclude them. Costing still works." items={d.dupes.flatMap((x) => x.variants)} />
             {d.dupes.length ? (
-              <div className="callout callout--bad" role="alert">
-                <span><strong>Blocker.</strong> {d.blockedKits.length ? `${d.blockedKits.length} of your kits touch a duplicated SKU: ${d.blockedKits.map((k) => d.kitNames[k]).join(", ")}.` : "No kit uses these yet, but sync will refuse them if you add one."}</span>
-              </div>
+              <Banner tone="bad" role="alert" heading="Blocker">
+                {d.blockedKits.length ? `${d.blockedKits.length} of your kits touch a duplicated SKU: ${d.blockedKits.map((k) => d.kitNames[k]).join(", ")}.` : "No kit uses these yet, but sync will refuse them if you add one."}
+              </Banner>
             ) : null}
             <Issue title="Inventory tracking is off" count={d.untrackedCount} tone="warn" why="An untracked component can never limit a kit. Native bundles oversell this way. Kits using it get a warning badge." items={d.untracked} />
             <Issue title="Continue selling when out of stock" count={d.continueCount} tone="warn" why="Same hole: the component looks unlimited, so availability math ignores it." items={d.continueSelling} />

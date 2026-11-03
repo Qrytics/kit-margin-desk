@@ -10,6 +10,7 @@ import { indexKits } from "../core/bom";
 import { unitCostFn, variantLabel } from "../core/views";
 import { buildDigest } from "../core/digest";
 import { PageHead, Stamp, Toast } from "../components/ui";
+import { Banner, Button, Checkbox, Select, TextField } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ctx = await appContext(request);
@@ -45,6 +46,12 @@ export default function Settings() {
   const csv = useFetcher<{ ok: boolean; message: string; data?: { rows: unknown[]; errors: Array<{ line: number; message: string }>; unmatched: Array<{ line: number; sku: string; role: string }> } }>();
   const [text, setText] = useState("kit_sku,component_sku,qty_per_kit,waste_pct\n");
   const rep = csv.data?.data;
+  const submitCsv = (commit: boolean) => {
+    const fd = new FormData();
+    fd.set("intent", "import-csv"); fd.set("csv", text);
+    if (commit) fd.set("commit", "1");
+    csv.submit(fd, { method: "post" });
+  };
   return (
     <>
       <PageHead verdict="You are in control of every automated change." sub={`${PLANS[d.plan].label} plan. ${d.cap ? `${d.used} of ${d.cap} kit orders used this month.` : `${d.used} kit orders this month, no cap.`}`} />
@@ -52,30 +59,29 @@ export default function Settings() {
         <div className="kill" data-paused={d.paused} role="group" aria-label="Pause all sync">
           <div style={{ flex: 1 }}><div className="state">{d.paused ? "All sync is paused" : d.syncEnabled ? "Live sync is running" : "Live sync is off"}</div>
             <p className="muted">{d.paused ? "Webhooks are still recorded so nothing is lost, but no stock is written to Shopify." : "Pause stops every write instantly: orders, refunds, builds, receipts and reconciliation."}</p></div>
-          <kill.Form method="post"><button className={`btn ${d.paused ? "btn--primary" : "btn--danger"}`} name="intent" value={d.paused ? "resume-all" : "pause-all"} disabled={kill.state !== "idle"}>{d.paused ? "Resume sync" : "Pause all sync"}</button></kill.Form>
+          <kill.Form method="post"><input type="hidden" name="intent" value={d.paused ? "resume-all" : "pause-all"} /><Button type="submit" variant={d.paused ? "primary" : "danger"} loading={kill.state !== "idle"}>{d.paused ? "Resume sync" : "Pause all sync"}</Button></kill.Form>
         </div>
 
         <save.Form method="post" className="panel stack stack--tight" aria-labelledby="def">
           <h2 id="def">Defaults</h2>
           <div className="grid-form">
-            <label className="field">Default location
-              <select name="defaultLocationId" defaultValue={d.settings.defaultLocationId ?? ""}><option value="">Primary location</option>{d.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
-              <span className="hint">Used when an order has no assigned location. Those rows are flagged as assumed.</span></label>
-            <label className="field">Labor rate per hour<input name="laborRate" type="number" step="0.01" min="0" defaultValue={(d.settings.laborRateCents / 100).toFixed(2)} /></label>
-            <label className="field">Default landed uplift %<input name="upliftPct" type="number" step="0.5" min="0" defaultValue={d.settings.landedUpliftBps / 100} /></label>
-            <label className="field">Healthy margin from %<input name="targetPct" type="number" step="1" min="0" max="100" defaultValue={d.settings.targetMarginPct} /></label>
-            <label className="field">Alert below %<input name="alertPct" type="number" step="1" min="0" max="100" defaultValue={d.settings.alertMarginPct} /></label>
-            <label className="field">Days of cover to order for<input name="coverDays" type="number" min="1" defaultValue={d.settings.coverDays} /></label>
+            <Select label="Default location" name="defaultLocationId" defaultValue={d.settings.defaultLocationId ?? ""} hint="Used when an order has no assigned location. Those rows are flagged as assumed."
+              options={[{ value: "", label: "Primary location" }, ...d.locations.map((l) => ({ value: l.id, label: l.name }))]} />
+            <TextField label="Labor rate per hour" name="laborRate" type="number" step="0.01" min="0" defaultValue={(d.settings.laborRateCents / 100).toFixed(2)} />
+            <TextField label="Default landed uplift %" name="upliftPct" type="number" step="0.5" min="0" defaultValue={String(d.settings.landedUpliftBps / 100)} />
+            <TextField label="Healthy margin from %" name="targetPct" type="number" step="1" min="0" max="100" defaultValue={String(d.settings.targetMarginPct)} />
+            <TextField label="Alert below %" name="alertPct" type="number" step="1" min="0" max="100" defaultValue={String(d.settings.alertMarginPct)} />
+            <TextField label="Days of cover to order for" name="coverDays" type="number" min="1" defaultValue={String(d.settings.coverDays)} />
           </div>
-          <label className="check"><input type="checkbox" name="pushCost" defaultChecked={d.settings.pushCostToShopify} /><span>When a PO is received, also write the new average cost to Shopify cost per item</span></label>
-          <label className="check"><input type="checkbox" name="digest" defaultChecked={d.settings.digest} disabled={!d.digest} /><span>Daily digest email {d.digest ? "" : "(Kit Desk Pro)"}</span></label>
+          <Checkbox name="pushCost" defaultChecked={d.settings.pushCostToShopify} label="When a PO is received, also write the new average cost to Shopify cost per item" />
+          <Checkbox name="digest" defaultChecked={d.settings.digest} disabled={!d.digest} label={`Daily digest email${d.digest ? "" : " (Kit Desk Pro)"}`} />
           {d.digest ? (
             <div className="grid-form">
-              <label className="field">Send digest to<input name="digestEmail" type="email" defaultValue={d.settings.digestEmail} placeholder="Shop owner email" /><span className="hint">Losing kits, supplier cost changes and parts to reorder. Delivered through the mail relay configured by DIGEST_WEBHOOK_URL.</span></label>
-              <label className="check"><input type="checkbox" name="digestAlways" defaultChecked={d.settings.digestAlways} /><span>Also send on quiet days</span></label>
+              <TextField label="Send digest to" name="digestEmail" type="email" defaultValue={d.settings.digestEmail} placeholder="Shop owner email" hint="Losing kits, supplier cost changes and parts to reorder. Delivered through the mail relay configured by DIGEST_WEBHOOK_URL." />
+              <Checkbox name="digestAlways" defaultChecked={d.settings.digestAlways} label="Also send on quiet days" />
             </div>
           ) : null}
-          <div><button className="btn btn--primary" name="intent" value="save-settings" disabled={save.state !== "idle"}>Save settings</button></div>
+          <div><input type="hidden" name="intent" value="save-settings" /><Button type="submit" variant="primary" loading={save.state !== "idle"}>Save settings</Button></div>
         </save.Form>
 
         {d.preview ? (
@@ -93,17 +99,17 @@ export default function Settings() {
             <label className="field">Paste CSV (kit_sku, component_sku, qty_per_kit, waste_pct)
               <textarea name="csv" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} disabled={!d.csv} /></label>
             <div className="row">
-              <button className="btn" name="intent" value="import-csv" disabled={!d.csv || csv.state !== "idle"}>Check file</button>
-              <button className="btn btn--primary" name="intent" value="import-csv" onClick={(e) => { const f = e.currentTarget.form!; let h = f.querySelector<HTMLInputElement>("input[name=commit]"); if (!h) { h = document.createElement("input"); h.type = "hidden"; h.name = "commit"; f.appendChild(h); } h.value = "1"; }} disabled={!d.csv || csv.state !== "idle" || !rep || rep.rows.length === 0}>Import {rep ? rep.rows.length : ""} rows</button>
-              <a className="btn" href="/app/settings?export=bom" download aria-disabled={!d.csv}>Export BOMs</a>
+              <Button onClick={() => submitCsv(false)} disabled={!d.csv || csv.state !== "idle"}>Check file</Button>
+              <Button variant="primary" onClick={() => submitCsv(true)} disabled={!d.csv || csv.state !== "idle" || !rep || rep.rows.length === 0}>Import {rep ? rep.rows.length : ""} rows</Button>
+              <Button href="/app/settings?export=bom" download disabled={!d.csv}>Export BOMs</Button>
             </div>
           </csv.Form>
           {rep ? (
-            <div className={`callout ${rep.errors.length || rep.unmatched.length ? "callout--warn" : "callout--ok"}`} role="status">
+            <Banner tone={rep.errors.length || rep.unmatched.length ? "warn" : "ok"} role="status">
               <div><strong>{rep.rows.length} rows ready.</strong>
                 {rep.unmatched.length ? <ul>{rep.unmatched.map((u, i) => <li key={i}>Line {u.line}: no {u.role} with SKU {u.sku} in your store.</li>)}</ul> : null}
                 {rep.errors.length ? <ul>{rep.errors.map((e, i) => <li key={i}>Line {e.line}: {e.message}</li>)}</ul> : null}</div>
-            </div>
+            </Banner>
           ) : null}
         </section>
 
@@ -111,8 +117,8 @@ export default function Settings() {
           <h2 id="dz">Danger zone and data</h2>
           <p className="muted">Take everything with you at any time. Exports include BOMs, costs and the full adjustment ledger.</p>
           <div className="row">
-            <a className="btn" href="/app/settings?export=all" download>Export all data (CSV)</a>
-            <kill.Form method="post"><button className="btn" name="intent" value="resync" disabled={kill.state !== "idle"}>Resync now</button></kill.Form>
+            <Button href="/app/settings?export=all" download>Export all data (CSV)</Button>
+            <kill.Form method="post"><input type="hidden" name="intent" value="resync" /><Button type="submit" loading={kill.state !== "idle"}>Resync now</Button></kill.Form>
           </div>
         </section>
       </div>

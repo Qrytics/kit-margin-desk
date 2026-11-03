@@ -5,6 +5,7 @@ import { handleAction } from "../server/route-helpers.server";
 import { costAlerts, marginDesk, money } from "../core/views";
 import { toCsv } from "../core/csv";
 import { Empty, HealthStamp, IntentButton, PageHead, pct } from "../components/ui";
+import { Button } from "../components/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ctx = await appContext(request);
@@ -34,7 +35,7 @@ export default function MarginDesk() {
         <div className="pill-tabs" role="group" aria-label="Period">
           {[7, 30, 90].map((n) => <button key={n} aria-pressed={d.days === n} onClick={() => setParams({ days: String(n) })}>{n} days</button>)}
         </div>
-        <a className="btn" href={`/app/margin?days=${d.days}&format=csv`} download>Export CSV</a>
+        <Button href={`/app/margin?days=${d.days}&format=csv`} download>Export CSV</Button>
       </PageHead>
 
       <div className="hero-figure">
