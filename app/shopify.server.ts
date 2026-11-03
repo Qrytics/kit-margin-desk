@@ -10,25 +10,21 @@ import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prism
 import prisma from "./db.server";
 import { PLANS } from "./core/plans";
 
+type BillingPlan = NonNullable<Parameters<typeof shopifyApp>[0]["billing"]>[string];
+
 export const API_VERSION = ApiVersion.April26;
 
-/** Plan keys here are the names Shopify shows the merchant; see core/plans.ts for entitlements. */
-export const BILLING_PLANS = {
-  [PLANS.kit_desk.billingName!]: {
-    trialDays: PLANS.kit_desk.trialDays,
-    replacementBehavior: BillingReplacementBehavior.ApplyImmediately,
-    lineItems: [{ amount: PLANS.kit_desk.monthlyUsd, currencyCode: "USD", interval: BillingInterval.Every30Days }],
-  },
-  [PLANS.kit_desk_pro.billingName!]: {
-    trialDays: PLANS.kit_desk_pro.trialDays,
-    replacementBehavior: BillingReplacementBehavior.ApplyImmediately,
-    lineItems: [{ amount: PLANS.kit_desk_pro.monthlyUsd, currencyCode: "USD", interval: BillingInterval.Every30Days }],
-  },
-  [PLANS.plus.billingName!]: {
-    trialDays: PLANS.plus.trialDays,
-    replacementBehavior: BillingReplacementBehavior.ApplyImmediately,
-    lineItems: [{ amount: PLANS.plus.monthlyUsd, currencyCode: "USD", interval: BillingInterval.Every30Days }],
-  },
+const recurring = (usd: number, trialDays: number): BillingPlan => ({
+  trialDays,
+  replacementBehavior: BillingReplacementBehavior.ApplyImmediately,
+  lineItems: [{ amount: usd, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+});
+
+/** Keys are the plan names Shopify shows the merchant; see core/plans.ts for entitlements. */
+export const BILLING_PLANS: Record<string, BillingPlan> = {
+  [PLANS.kit_desk.billingName!]: recurring(PLANS.kit_desk.monthlyUsd, PLANS.kit_desk.trialDays),
+  [PLANS.kit_desk_pro.billingName!]: recurring(PLANS.kit_desk_pro.monthlyUsd, PLANS.kit_desk_pro.trialDays),
+  [PLANS.plus.billingName!]: recurring(PLANS.plus.monthlyUsd, PLANS.plus.trialDays),
 };
 
 const shopify = shopifyApp({

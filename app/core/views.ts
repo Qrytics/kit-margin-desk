@@ -43,7 +43,7 @@ export function kitRows(s: Snapshot): KitRow[] {
   const loc = primaryLocationId(s);
   const cost = unitCostFn(s);
   const since = Date.now() - 30 * DAY;
-  return s.kits.filter((k) => k.active !== false).map((k) => {
+  return s.kits.map((k) => {
     const v = s.variants[k.variantId];
     const av = deriveAvailability(k, idx, (id) => {
       const c = s.variants[id];
