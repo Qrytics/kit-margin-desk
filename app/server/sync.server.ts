@@ -55,7 +55,9 @@ export async function processOrderEvent(ctx: Ctx, topic: string, p: OrderPayload
   const { shop, settings, kits, idx, store } = await prepare(ctx);
   const orderId = String(p.id);
   const soldAt = new Date(p.created_at ?? Date.now());
-  const byVariant = new Map<string, KitDef>(kits.filter((k) => k.mode === "assemble_on_order").map((k) => [k.variantId, k]));
+  const excluded = new Set(settings.excludedVariantIds);
+  const held = (k: KitDef) => excluded.size > 0 && [...explodeBom(k, idx).leaves.keys(), k.variantId].some((v) => excluded.has(v));
+  const byVariant = new Map<string, KitDef>(kits.filter((k) => k.mode === "assemble_on_order" && !held(k)).map((k) => [k.variantId, k]));
   const allKits = new Map(kits.map((k) => [k.variantId, k]));
 
   // Sales history (for margin + burn) is always recorded, even with sync off.
@@ -161,15 +163,11 @@ interface RefundPayload {
 export async function processRefundEvent(ctx: Ctx, p: RefundPayload): Promise<{ applied: number; skipped: number } | "ignored"> {
   const { shop, settings, kits, idx, store } = await prepare(ctx);
   const orderId = String(p.order_id);
-  const byVariant = new Map(kits.map((k) => [k.variantId, k]));
-  // sales history: record returned units regardless of restock (revenue is returns-adjusted)
-  for (const r of p.refund_line_items) {
-    await prisma.saleLine.updateMany({ where: { shopId: ctx.shopId, orderId, lineId: String(r.line_item_id) }, data: { refundedQty: { increment: 0 } } });
-  }
-  if (!shop.syncEnabled || shop.syncPaused) {
-    await bumpRefunds(ctx.shopId, orderId, p);
-    return "ignored";
-  }
+  const excluded = new Set(settings.excludedVariantIds);
+  const byVariant = new Map(kits.filter((k) => ![...explodeBom(k, idx).leaves.keys(), k.variantId].some((v) => excluded.has(v))).map((k) => [k.variantId, k]));
+  // Sales history is returns-adjusted regardless of restock. The job layer dedupes the refund id, so increment is safe.
+  await bumpRefunds(ctx.shopId, orderId, p);
+  if (!shop.syncEnabled || shop.syncPaused) return "ignored";
   const planned: Array<{ lineId: string; kitVariantId: string; plan: ReturnType<typeof planLine>; kit: KitDef }> = [];
   for (const r of p.refund_line_items) {
     const variantId = r.line_item?.variant_id ? gid("ProductVariant", r.line_item.variant_id) : null;
@@ -201,7 +199,7 @@ export async function processRefundEvent(ctx: Ctx, p: RefundPayload): Promise<{ 
 
 async function bumpRefunds(shopId: string, orderId: string, p: RefundPayload) {
   for (const r of p.refund_line_items) {
-    await prisma.saleLine.updateMany({ where: { shopId, orderId, lineId: String(r.line_item_id) }, data: { refundedQty: r.quantity } });
+    await prisma.saleLine.updateMany({ where: { shopId, orderId, lineId: String(r.line_item_id) }, data: { refundedQty: { increment: r.quantity } } });
   }
 }
 

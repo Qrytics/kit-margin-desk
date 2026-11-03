@@ -27,6 +27,8 @@ export interface Settings {
   coverDays: number;
   digest: boolean;
   pushCostToShopify: boolean;
+  /** Variants the merchant chose to exclude from sync (duplicate-SKU resolution). Kits using them are held back. */
+  excludedVariantIds: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   coverDays: 30,
   digest: false,
   pushCostToShopify: false,
+  excludedVariantIds: [],
 };
 
 export interface KitRecord extends KitDef {
