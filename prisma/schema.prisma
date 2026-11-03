@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Required by @shopify/shopify-app-session-storage-prisma
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken          String?
+  refreshTokenExpires   DateTime?
+}
+
+enum KitMode {
+  assemble_on_order
+  pre_assembled
+}
+
+enum LedgerSource {
+  order
+  refund
+  cancel
+  fulfillment
+  build
+  po_receipt
+  reconciliation
+  manual
+  undo
+}
+
+enum LedgerStatus {
+  pending
+  applied
+  skipped
+  failed
+  needs_review
+}
+
+enum PoStatus {
+  draft
+  sent
+  partially_received
+  received
+  closed
+}
+
+model Shop {
+  id             String    @id @default(cuid())
+  domain         String    @unique
+  plan           String    @default("free") // free | kit_desk | kit_desk_pro | plus
+  syncEnabled    Boolean   @default(false)
+  syncEnabledAt  DateTime?
+  syncPaused     Boolean   @default(false)
+  settings       Json      @default("{}")
+  installedAt    DateTime  @default(now())
+  uninstalledAt  DateTime?
+
+  kits           Kit[]
+  componentMeta  ComponentMeta[]
+  processed      ProcessedEvent[]
+  orderLines     OrderLineState[]
+  sales          SaleLine[]
+  batches        LedgerBatch[]
+  ledger         LedgerEntry[]
+  purchaseOrders PurchaseOrder[]
+  costChanges    CostChange[]
+  jobs           Job[]
+}
+
+model Kit {
+  id               String   @id @default(cuid())
+  shopId           String
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopifyProductId String
+  shopifyVariantId String
+  mode             KitMode  @default(assemble_on_order)
+  manageAvailability Boolean @default(false) // write derived qty to the kit variant
+  packagingCostCents Int    @default(0)
+  laborMinutes     Decimal  @default(0) @db.Decimal(8, 2)
+  laborRateCents   Int?     // null = shop default
+  landedUpliftBps  Int?     // null = shop default
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  lines            BomLine[]  @relation("KitLines")
+  usedIn           BomLine[]  @relation("ComponentKit")
+
+  @@unique([shopId, shopifyVariantId])
+}
+
+model BomLine {
+  id                       String  @id @default(cuid())
+  kitId                    String
+  kit                      Kit     @relation("KitLines", fields: [kitId], references: [id], onDelete: Cascade)
+  componentVariantId       String? // Shopify variant gid (leaf)
+  componentInventoryItemId String?
+  componentKitId           String? // nested kit
+  componentKit             Kit?    @relation("ComponentKit", fields: [componentKitId], references: [id], onDelete: Restrict)
+  qtyPerKit                Decimal @db.Decimal(12, 4)
+  wasteBps                 Int     @default(0)
+  uomLabel                 String  @default("pcs")
+  sort                     Int     @default(0)
+  broken                   Boolean @default(false)
+
+  @@index([kitId])
+}
+
+model ComponentMeta {
+  shopId            String
+  shop              Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variantId         String
+  supplierName      String?
+  supplierSku       String?
+  packSize          Int?
+  leadTimeDays      Int?
+  reorderPointOverride Int?
+  avgCostCents      Int?    // weighted average, app-maintained
+  lastKnownCostCents Int?   // last Shopify cost we saw (cost-change alerts)
+
+  @@id([shopId, variantId])
+}
+
+model ProcessedEvent {
+  id             String   @id @default(cuid())
+  shopId         String
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  idempotencyKey String
+  topic          String
+  entityId       String
+  payloadHash    String?
+  processedAt    DateTime @default(now())
+
+  @@unique([shopId, idempotencyKey])
+}
+
+// Per order line state: what we have applied. Makes edits/refunds/cancels order-independent.
+model OrderLineState {
+  id           String  @id @default(cuid())
+  shopId       String
+  shop         Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orderId      String
+  lineId       String
+  kitVariantId String
+  orderedQty   Int?    // null until the order itself has been seen (refund arrived first)
+  refunds      Json    @default("{}") // refundLineId -> restocked qty
+  cancelledQty Int     @default(0)
+  netApplied   Int     @default(0)   // kit units currently decremented
+  bomSnapshot  Json    @default("{}") // leafVariantId -> micro-qty per kit at first application
+  locationId   String?
+  locationAssumed Boolean @default(false)
+  frozen       Boolean @default(false) // set when the merchant undoes the batch
+  orderName    String?
+  updatedAt    DateTime @updatedAt
+
+  @@unique([shopId, orderId, lineId])
+}
+
+// Lightweight sales history for margin periods and burn rate (no customer PII).
+model SaleLine {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orderId    String
+  lineId     String
+  variantId  String
+  qty        Int
+  refundedQty Int     @default(0)
+  unitPriceCents Int
+  soldAt     DateTime
+
+  @@unique([shopId, orderId, lineId])
+  @@index([shopId, soldAt])
+}
+
+model LedgerBatch {
+  id          String       @id
+  shopId      String
+  shop        Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sourceType  LedgerSource
+  sourceRef   String
+  status      LedgerStatus @default(pending)
+  note        String?
+  undoneByBatchId String?
+  createdAt   DateTime     @default(now())
+  entries     LedgerEntry[]
+
+  @@index([shopId, createdAt])
+}
+
+model LedgerEntry {
+  id          String       @id @default(cuid())
+  shopId      String
+  shop        Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  batchId     String
+  batch       LedgerBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  sourceType  LedgerSource
+  sourceRef   String
+  variantId   String
+  sku         String?
+  locationId  String
+  delta       Int
+  beforeQty   Int?
+  afterQty    Int?
+  status      LedgerStatus @default(pending)
+  locationAssumed Boolean  @default(false)
+  lineKey     String?      // orderId:lineId for order-sourced rows
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([batchId])
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  number       Int
+  supplierName String
+  status       PoStatus @default(draft)
+  expectedDate DateTime?
+  freightCents Int      @default(0)
+  createdAt    DateTime @default(now())
+  lines        PoLine[]
+
+  @@unique([shopId, number])
+}
+
+model PoLine {
+  id           String  @id @default(cuid())
+  poId         String
+  po           PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  variantId    String
+  qtyOrdered   Int
+  qtyReceived  Int     @default(0)
+  unitCostCents Int
+}
+
+model CostChange {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variantId   String
+  oldCents    Int
+  newCents    Int
+  source      String   // shopify | po_receipt | manual
+  dismissed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([shopId, createdAt])
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  shopId    String
+  shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  kind      String
+  payload   Json
+  dedupeKey String?
+  attempts  Int       @default(0)
+  runAt     DateTime  @default(now())
+  lockedAt  DateTime?
+  doneAt    DateTime?
+  lastError String?
+  createdAt DateTime  @default(now())
+
+  @@unique([shopId, dedupeKey])
+  @@index([doneAt, runAt])
+}
