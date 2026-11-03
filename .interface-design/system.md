@@ -18,5 +18,9 @@ Light instrument panel for kit economics. Hard constraints kept: square-ish corn
 - Controls: all through `app/components/polaris.tsx`. Native elements with the Bench styles standalone, real `s-*` Polaris web components inside the Shopify admin. Do not use raw `<button>` or `<input>` for primary controls in routes.
 - Per-location availability is a small ruled table in the kit editor sidebar, lead stamp "Most stock".
 
+## Lint false positives (sloplint, `lint.sh app`)
+- FAIL "no overflow-x: clip on html and body" at app/root.tsx: reported at a line past the end of the 25-line file, so it is a whole-project check that does not see the rule. `html, body { overflow-x: clip; }` exists in app/styles/ledger.css line 52 and inline in root.tsx. Not changed.
+- WARN "script prints success with no request" (replenish line 70, settings line 70): the matches are an input's accessible label (`Received quantity for ...`) and the settings page verdict heading (`You are in control of every automated change.`); neither is a success message. Dismissed.
+
 ## Direction verification note
 `direction.mjs --verify` reports "looks like portfolioSite: same font pairing". The tool derives the pairing from the direction catalog entry (Schibsted Grotesk + Martian Mono), not from this project's CSS. This project ships Schibsted Grotesk + IBM Plex Mono, installed and used; Martian Mono is neither installed nor referenced. Palette tokens also differ in role (this project's accents are gain/loss, not a generic accent). Treated as a catalog-level false positive; the remaining way to silence it would be choosing another direction, which would discard the KEEP list (bone panel, price ruler).

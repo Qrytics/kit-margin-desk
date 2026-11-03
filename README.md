@@ -67,6 +67,13 @@ Env vars: SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_APP_URL, SCOPES, DATABASE
 - Dry run shows planned adjustments for the last 20 kit orders, simulated against current BOMs.
 - Design-direction check reports "looks like portfolioSite" because the tool compares catalog pairings; see `.interface-design/system.md`.
 
+## Visual QA status
+
+- Not yet screenshot-verified. The demo-mode server could not be started in the QA session (the shell permission classifier denied the start command), so no route was captured or viewed. Routes still to be viewed: setup (full-scan panel), margin, replenish (PDF button), ledger, settings (desktop and 390px phone), pricing, kits, kit editor (location table).
+- To do it: `npm run build`, `DEMO_MODE=true PORT=3121 npx react-router-serve ./build/server/index.js`, then run `look.mjs` per route.
+- Static checks that did run: `tsc --noEmit` clean, 59 tests pass, build passes, dom-contract intact. Lint: one FAIL and two WARN, all judged false positives (see `.interface-design/system.md`).
+- The Polaris web-component branch (`s-*`) still cannot be seen outside a real Shopify admin.
+
 ## Design decisions worth knowing
 
 - Sync is off by default; kill switch "Pause all sync" stops every write.
