@@ -19,5 +19,4 @@ export default defineConfig({
   plugins: [reactRouter(), tsconfigPaths()],
   build: { assetsInlineLimit: 0 },
   optimizeDeps: { include: ["@shopify/app-bridge-react", "@shopify/polaris"] },
-  test: { include: ["tests/**/*.test.ts"], environment: "node" },
 } as never);

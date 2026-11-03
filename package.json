@@ -12,7 +12,7 @@
     "setup": "prisma generate && prisma migrate deploy",
     "prisma": "prisma",
     "typecheck": "react-router typegen && tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
     "shopify": "shopify"
   },
   "engines": {
