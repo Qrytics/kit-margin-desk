@@ -6,9 +6,11 @@ import { PLANS, planAllows, type PlanKey } from "../core/plans";
 import { eventKey } from "../core/sync";
 import { PrismaLedgerStore, loadKits, settingsOf } from "./repo.server";
 import { ShopifyInventoryGateway, fetchLocations, fetchVariants, setKitQuantity } from "./shopify-api";
+import { handleBulkJob } from "./bulk.server";
+import { runDigest } from "./digest.server";
 import { hash, processFulfillmentEvent, processOrderEvent, processRefundEvent } from "./sync.server";
 
-export type JobKind = "order" | "refund" | "fulfillment" | "product" | "inventory" | "recompute" | "reconcile" | "digest";
+export type JobKind = "order" | "refund" | "fulfillment" | "product" | "inventory" | "recompute" | "reconcile" | "digest" | "bulk_finish" | "bulk_poll";
 
 /** Webhook handlers call this and return 200 immediately. dedupeKey = webhook id, so Shopify retries collapse. */
 export async function enqueue(shopDomain: string, kind: JobKind, payload: unknown, opts: { dedupeKey?: string; delaySeconds?: number } = {}) {
@@ -79,7 +81,9 @@ async function handle(domain: string, shopId: string, kind: JobKind, payload: Re
     case "inventory": return scheduleRecompute(domain, 20);
     case "recompute": return recomputeAvailability(ctx);
     case "reconcile": return reconcile(ctx);
-    case "digest": return;
+    case "digest": return runDigest(ctx);
+    case "bulk_finish":
+    case "bulk_poll": return handleBulkJob(ctx, kind, payload as never);
   }
   void dedupe;
 }

@@ -243,6 +243,30 @@ CREATE TABLE "Job" (
     CONSTRAINT "Job_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "CatalogScan" (
+    "id" TEXT NOT NULL,
+    "shopId" TEXT NOT NULL,
+    "operationId" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'running',
+    "variantCount" INTEGER NOT NULL DEFAULT 0,
+    "error" TEXT,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "finishedAt" TIMESTAMP(3),
+
+    CONSTRAINT "CatalogScan_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CatalogVariant" (
+    "shopId" TEXT NOT NULL,
+    "variantId" TEXT NOT NULL,
+    "sku" TEXT,
+    "data" JSONB NOT NULL,
+
+    CONSTRAINT "CatalogVariant_pkey" PRIMARY KEY ("shopId","variantId")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Shop_domain_key" ON "Shop"("domain");
 
@@ -285,6 +309,15 @@ CREATE INDEX "Job_doneAt_runAt_idx" ON "Job"("doneAt", "runAt");
 -- CreateIndex
 CREATE UNIQUE INDEX "Job_shopId_dedupeKey_key" ON "Job"("shopId", "dedupeKey");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "CatalogScan_operationId_key" ON "CatalogScan"("operationId");
+
+-- CreateIndex
+CREATE INDEX "CatalogScan_shopId_startedAt_idx" ON "CatalogScan"("shopId", "startedAt");
+
+-- CreateIndex
+CREATE INDEX "CatalogVariant_shopId_sku_idx" ON "CatalogVariant"("shopId", "sku");
+
 -- AddForeignKey
 ALTER TABLE "Kit" ADD CONSTRAINT "Kit_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -326,4 +359,10 @@ ALTER TABLE "CostChange" ADD CONSTRAINT "CostChange_shopId_fkey" FOREIGN KEY ("s
 
 -- AddForeignKey
 ALTER TABLE "Job" ADD CONSTRAINT "Job_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CatalogScan" ADD CONSTRAINT "CatalogScan_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CatalogVariant" ADD CONSTRAINT "CatalogVariant_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

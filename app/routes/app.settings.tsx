@@ -8,6 +8,7 @@ import { BOM_HEADER, toCsv } from "../core/csv";
 import { rollupCost } from "../core/margin";
 import { indexKits } from "../core/bom";
 import { unitCostFn, variantLabel } from "../core/views";
+import { buildDigest } from "../core/digest";
 import { PageHead, Stamp, Toast } from "../components/ui";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -32,7 +33,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       throw new Response(body, { headers: { "Content-Type": "text/csv", "Content-Disposition": 'attachment; filename="kit-margin-desk-export.csv"' } });
     }
   }
-  return { settings: s.settings, locations: s.locations, paused: s.syncPaused, syncEnabled: s.syncEnabled, plan: s.plan, csv: planAllows(s.plan, "csv"), digest: planAllows(s.plan, "digest"), used: s.kitOrdersThisMonth, cap: PLANS[s.plan].kitOrdersPerMonth, names: Object.fromEntries(Object.values(s.variants).map((v) => [v.id, variantLabel(v)])) };
+  const preview = planAllows(s.plan, "digest") ? buildDigest(s) : null;
+  return { preview: preview ? { subject: preview.subject, text: preview.text } : null, settings: s.settings, locations: s.locations, paused: s.syncPaused, syncEnabled: s.syncEnabled, plan: s.plan, csv: planAllows(s.plan, "csv"), digest: planAllows(s.plan, "digest"), used: s.kitOrdersThisMonth, cap: PLANS[s.plan].kitOrdersPerMonth, names: Object.fromEntries(Object.values(s.variants).map((v) => [v.id, variantLabel(v)])) };
 };
 export const action = ({ request }: ActionFunctionArgs) => handleAction(request);
 
@@ -67,8 +69,23 @@ export default function Settings() {
           </div>
           <label className="check"><input type="checkbox" name="pushCost" defaultChecked={d.settings.pushCostToShopify} /><span>When a PO is received, also write the new average cost to Shopify cost per item</span></label>
           <label className="check"><input type="checkbox" name="digest" defaultChecked={d.settings.digest} disabled={!d.digest} /><span>Daily digest email {d.digest ? "" : "(Kit Desk Pro)"}</span></label>
+          {d.digest ? (
+            <div className="grid-form">
+              <label className="field">Send digest to<input name="digestEmail" type="email" defaultValue={d.settings.digestEmail} placeholder="Shop owner email" /><span className="hint">Losing kits, supplier cost changes and parts to reorder. Delivered through the mail relay configured by DIGEST_WEBHOOK_URL.</span></label>
+              <label className="check"><input type="checkbox" name="digestAlways" defaultChecked={d.settings.digestAlways} /><span>Also send on quiet days</span></label>
+            </div>
+          ) : null}
           <div><button className="btn btn--primary" name="intent" value="save-settings" disabled={save.state !== "idle"}>Save settings</button></div>
         </save.Form>
+
+        {d.preview ? (
+          <section className="panel stack stack--tight" aria-labelledby="dgp">
+            <h2 id="dgp">Digest preview</h2>
+            <p className="muted">This is what tomorrow&apos;s email would say right now.</p>
+            <p><strong>{d.preview.subject}</strong></p>
+            <pre className="preview">{d.preview.text}</pre>
+          </section>
+        ) : null}
 
         <section id="csv" className="panel stack stack--tight" aria-labelledby="csvh">
           <div className="row row--between"><h2 id="csvh">Import and export BOMs</h2>{!d.csv ? <Stamp tone="warn">Kit Desk and above</Stamp> : null}</div>

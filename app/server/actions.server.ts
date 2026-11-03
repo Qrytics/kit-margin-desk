@@ -8,6 +8,7 @@ import { weightedAverageCost, rollupCost } from "../core/margin";
 import { toMicro } from "../lib/units";
 import type { AppContext } from "./context.server";
 import { PrismaLedgerStore, loadKits, settingsOf } from "./repo.server";
+import { catalogFor, requestCatalogScan } from "./bulk.server";
 import { ShopifyInventoryGateway, fetchVariants, scanCatalog, updateUnitCost } from "./shopify-api";
 import { undoFromUi } from "./sync.server";
 import { primaryLocationId, unitCostFn } from "../core/views";
@@ -42,7 +43,7 @@ export async function performAction(ctx: AppContext, intent: string, f: FormData
 
   switch (intent) {
     case "enable-sync": {
-      const report = (await scanCatalog(ctx.admin!)).variants;
+      const report = (await catalogFor(ctx.admin!, shopId, scanCatalog)).variants;
       const bySku = new Map<string, string[]>();
       for (const v of report) if (v.sku) bySku.set(v.sku.toLowerCase(), [...(bySku.get(v.sku.toLowerCase()) ?? []), v.id]);
       const idx = indexKits(snap.kits);
@@ -52,6 +53,10 @@ export async function performAction(ctx: AppContext, intent: string, f: FormData
       if (conflicts.length) return fail("Duplicate SKUs touch your kits. Resolve them in Shopify, or exclude those kits, before enabling sync.");
       await prisma.shop.update({ where: { id: shopId }, data: { syncEnabled: true, syncEnabledAt: new Date() } });
       return ok("Live sync is on. Every adjustment will appear in the ledger.");
+    }
+    case "scan-catalog": {
+      const r = await requestCatalogScan(ctx.admin!, shopId, ctx.shop);
+      return r.started ? ok("Full catalog scan started. It runs on Shopify and finishes in the background; this page updates when it does.") : fail(r.reason);
     }
     case "disable-sync":
       await prisma.shop.update({ where: { id: shopId }, data: { syncEnabled: false } });
@@ -72,6 +77,8 @@ export async function performAction(ctx: AppContext, intent: string, f: FormData
         alertMarginPct: Number(get("alertPct")) || 15,
         coverDays: Math.max(1, Number(get("coverDays")) || 30),
         digest: get("digest") === "on" && planAllows(snap.plan, "digest"),
+        digestEmail: get("digestEmail").trim().slice(0, 254),
+        digestAlways: get("digestAlways") === "on",
         pushCostToShopify: get("pushCost") === "on",
       };
       await prisma.shop.update({ where: { id: shopId }, data: { settings: next as never } });
@@ -165,7 +172,7 @@ export async function performAction(ctx: AppContext, intent: string, f: FormData
     }
     case "import-csv": {
       if (!planAllows(snap.plan, "csv")) return fail("CSV import is part of Kit Desk and above.");
-      const catalog = (await scanCatalog(ctx.admin!)).variants;
+      const catalog = (await catalogFor(ctx.admin!, shopId, scanCatalog)).variants;
       const bySku = new Map(catalog.filter((v) => v.sku).map((v) => [v.sku!, v]));
       const report = parseBomCsv(get("csv"), new Set(bySku.keys()));
       if (get("commit") !== "1") return { ok: report.errors.length === 0, message: `${report.rows.length} rows ready, ${report.unmatched.length} unmatched, ${report.errors.length} invalid.`, data: report };
@@ -292,7 +299,7 @@ function demoAction(ctx: AppContext, intent: string, f: FormData): ActionResult 
     case "resume-all": snap.syncPaused = false; return ok("Sync resumed.");
     case "exclude-variant": snap.settings.excludedVariantIds.push(get("variantId")); return ok("Excluded from sync.");
     case "save-settings":
-      Object.assign(snap.settings, { targetMarginPct: Number(get("targetPct")) || 40, alertMarginPct: Number(get("alertPct")) || 15, coverDays: Number(get("coverDays")) || 30, laborRateCents: Math.round(Number(get("laborRate")) * 100), landedUpliftBps: Math.round(Number(get("upliftPct")) * 100) });
+      Object.assign(snap.settings, { targetMarginPct: Number(get("targetPct")) || 40, alertMarginPct: Number(get("alertPct")) || 15, coverDays: Number(get("coverDays")) || 30, laborRateCents: Math.round(Number(get("laborRate")) * 100), landedUpliftBps: Math.round(Number(get("upliftPct")) * 100), digest: get("digest") === "on", digestEmail: get("digestEmail").trim(), digestAlways: get("digestAlways") === "on" });
       return ok("Settings saved (demo memory).");
     case "save-kit": {
       const kit = snap.kits.find((k) => k.id === get("kitId"));

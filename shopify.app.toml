@@ -43,6 +43,10 @@ api_version = "2026-04"
   topics = [ "inventory_levels/update" ]
   uri = "/webhooks/inventory"
 
+  [[webhooks.subscriptions]]
+  topics = [ "bulk_operations/finish" ]
+  uri = "/webhooks/bulk"
+
   # Mandatory GDPR webhooks
   [[webhooks.subscriptions]]
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]

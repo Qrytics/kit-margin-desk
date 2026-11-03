@@ -7,6 +7,7 @@ import { deriveAvailability, indexKits, type KitDef } from "../core/bom";
 import { marginFor, rollupCost } from "../core/margin";
 import { money, unitCostFn, primaryLocationId, variantLabel } from "../core/views";
 import { PLANS, planAllows } from "../core/plans";
+import { kitAvailabilityByLocation } from "../core/locations";
 import { PageHead, Toast, HealthStamp, pct } from "../components/ui";
 import { Ruler } from "../components/Ruler";
 import { VariantPicker } from "../components/VariantPicker";
@@ -23,8 +24,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const v = s.variants[id];
     return [id, { label: variantLabel(v), sku: v?.sku ?? null, costCents: cost(id), priceCents: v?.priceCents ?? 0, compareAtCents: v?.compareAtCents ?? null, available: v?.levels[primaryLocationId(s)] ?? 0, tracked: v?.tracked ?? false, continueSelling: v?.continueSelling ?? false, exists: v?.exists ?? false }];
   }));
+  const byLoc = kitAvailabilityByLocation(kit, s.kits, s.variants, s.locations);
+  const nameOf = (id: string | null) => (id ? variantLabel(s.variants[id]) : null);
+  const perLocation = {
+    multi: planAllows(s.plan, "multiLocation") && s.locations.length > 1, total: byLoc.total, best: byLoc.best,
+    rows: byLoc.rows.map((r) => ({ id: r.locationId, name: r.name, available: r.available, limiting: nameOf(r.limitingVariantId), notStocked: r.notStocked.map((v) => nameOf(v)) })),
+  };
   return {
-    kit, kits: s.kits, info, settings: s.settings, plan: s.plan, canBuild: planAllows(s.plan, "buildMode"), locations: s.locations,
+    perLocation, kit, kits: s.kits, info, settings: s.settings, plan: s.plan, canBuild: planAllows(s.plan, "buildMode"), locations: s.locations,
     others: s.kits.filter((k) => k.id !== kit.id).map((k) => ({ id: k.id, title: k.title })),
     shopifyCostCents: s.variants[kit.variantId]?.costCents ?? null,
   };
@@ -155,6 +162,19 @@ export default function KitEditor() {
         </div>
 
         <aside className="stack" aria-label="Cost rollup">
+          {d.perLocation.multi ? (
+            <section className="panel" aria-labelledby="loc">
+              <h2 id="loc">Can sell by location</h2>
+              <table className="ruled">
+                <thead><tr><th scope="col">Location</th><th scope="col" className="num">Kits</th><th scope="col">Held back by</th></tr></thead>
+                <tbody>{d.perLocation.rows.map((r) => (
+                  <tr key={r.id}><td>{r.name}{d.perLocation.best === r.id ? <> <span className="stamp stamp--ok">Most stock</span></> : null}</td>
+                    <td className="num figure">{r.available ?? "n/a"}</td>
+                    <td>{r.notStocked.length ? <span className="muted">Not stocked here: {r.notStocked.join(", ")}</span> : r.limiting ?? <span className="muted">Nothing</span>}</td></tr>))}</tbody>
+              </table>
+              <p className="hint" style={{ marginTop: 8 }}>A kit ships from one place, so locations are not added together. Total across sites: {d.perLocation.total}.</p>
+            </section>
+          ) : null}
           <section className="panel">
             <h2>Landed cost</h2>
             <div className="rollup" role="table" aria-label="Cost breakdown">

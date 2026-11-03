@@ -3,7 +3,8 @@ import { Link, useFetcher, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { appContext } from "../server/context.server";
 import { handleAction } from "../server/route-helpers.server";
-import { componentRows, money, suggestedOrders } from "../core/views";
+import { renderPoPdf } from "../core/po-pdf";
+import { componentRows, money, suggestedOrders, variantLabel } from "../core/views";
 import { planAllows } from "../core/plans";
 import { canTransition } from "../core/replenish";
 import { toCsv } from "../core/csv";
@@ -18,6 +19,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (poId && url.searchParams.get("format") === "csv") {
     const po = s.pos.find((p) => p.id === poId);
     if (po) throw new Response(toCsv([["supplier_sku", "sku", "item", "qty", "unit_cost"], ...po.lines.map((l) => [s.meta.find((m) => m.variantId === l.variantId)?.supplierSku ?? "", s.variants[l.variantId]?.sku ?? "", s.variants[l.variantId]?.productTitle ?? "", l.qtyOrdered, l.unitCostCents / 100])]), { headers: { "Content-Type": "text/csv", "Content-Disposition": `attachment; filename="PO-${po.number}.csv"` } });
+  }
+  if (poId && url.searchParams.get("format") === "pdf") {
+    const po = s.pos.find((p) => p.id === poId);
+    if (po) {
+      const bytes = await renderPoPdf({
+        number: po.number, supplierName: po.supplierName, shopName: s.shopDomain, status: po.status, freightCents: po.freightCents,
+        lines: po.lines.map((l) => ({ sku: s.variants[l.variantId]?.sku ?? "", supplierSku: s.meta.find((m) => m.variantId === l.variantId)?.supplierSku ?? "", item: variantLabel(s.variants[l.variantId]), qty: l.qtyOrdered, unitCostCents: l.unitCostCents })),
+      });
+      throw new Response(new Blob([bytes as BlobPart], { type: "application/pdf" }), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="PO-${po.number}.pdf"` } });
+    }
   }
   const rows = componentRows(s);
   const groups = [...suggestedOrders(rows)].map(([supplier, items]) => ({ supplier, items }));
@@ -81,6 +92,7 @@ export default function Replenish() {
             <div key={p.id} className="batch">
               <header><span><strong>PO #{p.number}</strong>, {p.supplierName}</span>
                 <span className="row"><Stamp tone={p.status === "received" || p.status === "closed" ? "ok" : p.status === "draft" ? "quiet" : "warn"}>{p.status.replace("_", " ")}</Stamp>
+                  <a className="btn btn--small" href={`/app/replenish?po=${p.id}&format=pdf`} download>PDF</a>
                   <a className="btn btn--small" href={`/app/replenish?po=${p.id}&format=csv`} download>CSV</a>
                   {canTransition(p.status, "sent") && p.status === "draft" ? <IntentButton intent="po-status" fields={{ poId: p.id, to: "sent" }} small variant="primary">Mark sent</IntentButton> : null}
                   {(p.status === "sent" || p.status === "partially_received") ? <button className="btn btn--small" onClick={() => setReceiving(receiving === p.id ? null : p.id)}>Receive</button> : null}

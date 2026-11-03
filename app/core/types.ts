@@ -26,6 +26,10 @@ export interface Settings {
   alertMarginPct: number;
   coverDays: number;
   digest: boolean;
+  /** Recipient for the daily digest; falls back to the shop owner email. */
+  digestEmail: string;
+  /** Send even on quiet days. */
+  digestAlways: boolean;
   pushCostToShopify: boolean;
   /** Variants the merchant chose to exclude from sync (duplicate-SKU resolution). Kits using them are held back. */
   excludedVariantIds: string[];
@@ -39,6 +43,8 @@ export const DEFAULT_SETTINGS: Settings = {
   alertMarginPct: 15,
   coverDays: 30,
   digest: false,
+  digestEmail: "",
+  digestAlways: false,
   pushCostToShopify: false,
   excludedVariantIds: [],
 };

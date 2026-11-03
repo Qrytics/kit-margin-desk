@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Link, useFetcher, useLoaderData } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { appContext } from "../server/context.server";
 import { handleAction } from "../server/route-helpers.server";
 import { dryRun, healthCheck, kitsBlockedByDuplicates, variantLabel } from "../core/views";
+import { catalogFor } from "../server/bulk.server";
 import { scanCatalog } from "../server/shopify-api";
 import { Empty, IntentButton, PageHead, Stamp, Toast, signed } from "../components/ui";
 import { VariantPicker } from "../components/VariantPicker";
@@ -12,14 +13,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ctx = await appContext(request, { withOrders: true });
   const s = ctx.snapshot;
   // Install-time catalog scan. Large catalogs: switch to bulkOperationRunQuery (README).
-  const scan = ctx.demo ? { variants: Object.values(s.variants), truncated: false } : await scanCatalog(ctx.admin!);
+  const scan = ctx.demo
+    ? { variants: Object.values(s.variants), truncated: false, source: "demo" as const, scanning: false, finishedAt: null as Date | null }
+    : await catalogFor(ctx.admin!, ctx.shopId!, scanCatalog);
   const report = healthCheck(scan.variants);
   const blocked = kitsBlockedByDuplicates({ ...s, variants: Object.fromEntries(scan.variants.map((v) => [v.id, v])) }, report);
   const adminBase = `https://${s.shopDomain}/admin/products`;
   const link = (productId: string) => `${adminBase}/${productId.split("/").pop()}`;
   const slim = (vs: typeof scan.variants) => vs.slice(0, 50).map((v) => ({ id: v.id, label: variantLabel(v), sku: v.sku, href: link(v.productId) }));
   return {
-    scanned: scan.variants.length, truncated: scan.truncated,
+    scanned: scan.variants.length, truncated: scan.truncated, source: scan.source, scanning: scan.scanning, scannedAt: scan.finishedAt ? scan.finishedAt.toISOString() : null, demo: ctx.demo,
     dupes: report.duplicateSkus.map((d) => ({ sku: d.sku, variants: slim(d.variants) })),
     untracked: slim(report.untracked), untrackedCount: report.untracked.length,
     continueSelling: slim(report.continueSelling), continueCount: report.continueSelling.length,
@@ -48,11 +51,29 @@ function Issue({ title, count, tone, items, why }: { title: string; count: numbe
 
 export default function Setup() {
   const d = useLoaderData<typeof loader>();
+  const revalidator = useRevalidator();
+  useEffect(() => {
+    if (!d.scanning) return;
+    const t = setInterval(() => revalidator.revalidate(), 8000);
+    return () => clearInterval(t);
+  }, [d.scanning, revalidator]);
   const [picked, setPicked] = useState<{ id: string; label: string } | null>(null);
   const create = useFetcher<{ ok: boolean; message: string }>();
   return (
     <>
-      <PageHead verdict={d.syncBlocked ? "Fix duplicate SKUs before sync can go live." : d.hasKits ? "Your catalog is ready for kit sync." : "Your catalog scan is in. Now map your first kit."} sub={`${d.scanned} variants scanned${d.truncated ? " (first 2,000; run the bulk scan for the rest)" : ""}. Nothing has been changed in your store.`} />
+      <PageHead verdict={d.syncBlocked ? "Fix duplicate SKUs before sync can go live." : d.hasKits ? "Your catalog is ready for kit sync." : "Your catalog scan is in. Now map your first kit."} sub={`${d.scanned} variants scanned${d.source === "bulk" ? " (full catalog)" : d.truncated ? " (first 2,000 only; run the full scan below)" : ""}. Nothing has been changed in your store.`} />
+
+      {!d.demo ? (
+        <section className="panel" aria-labelledby="fs" style={{ marginBottom: 24 }}>
+          <div className="row row--between">
+            <div>
+              <h2 id="fs">Full catalog scan</h2>
+              <p className="muted">{d.scanning ? "Shopify is reading your whole catalog. This page refreshes when it finishes." : d.source === "bulk" ? `Last full scan ${d.scannedAt ? new Date(d.scannedAt).toLocaleString("en-US") : ""}: ${d.scanned} variants.` : "Large catalogs are read in the background by Shopify, so nothing is capped or slow."}</p>
+            </div>
+            <IntentButton intent="scan-catalog" variant={d.source === "bulk" ? "default" : "primary"} disabled={d.scanning}>{d.scanning ? "Scanning" : d.source === "bulk" ? "Scan again" : "Run full scan"}</IntentButton>
+          </div>
+        </section>
+      ) : null}
 
       <div className="stack">
         <section id="first-kit" className="panel" aria-labelledby="fk">

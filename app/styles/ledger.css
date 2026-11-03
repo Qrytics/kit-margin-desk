@@ -298,3 +298,5 @@ body { font-variant-numeric: normal; }
 @media (max-width: 960px) { .cols > * { max-width: calc(100vw - 2 * var(--s4)); } }
 .table-wrap, .batch { position: relative; }
 .sr-only { white-space: nowrap; clip-path: inset(50%); }
+
+.preview { margin: 0; padding: var(--s3) var(--s4); background: var(--well); font-family: var(--font-figure); font-size: var(--t-1); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
