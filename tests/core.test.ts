@@ -244,3 +244,56 @@ describe("ledger apply + undo", () => {
     expect(gateway.get("JAR", "L1")).toBe(100);
   });
 });
+
+import { canCreateKit, planAllows, planFromBillingName, withinOrderQuota } from "../app/core/plans";
+import { parseBomCsv, toCsv } from "../app/core/csv";
+import { daysOfCover, needsReorder, planBuild, reorderPoint, statusAfterReceipt, suggestQty, canTransition } from "../app/core/replenish";
+
+describe("plans", () => {
+  it("gates features and quotas", () => {
+    expect(canCreateKit("free", 3).allowed).toBe(false);
+    expect(canCreateKit("kit_desk", 500).allowed).toBe(true);
+    expect(planAllows("kit_desk", "replenishment")).toBe(false);
+    expect(planAllows("kit_desk_pro", "replenishment")).toBe(true);
+    expect(withinOrderQuota("free", 20)).toBe(false);
+    expect(withinOrderQuota("plus", 1e6)).toBe(true);
+    expect(planFromBillingName("Kit Desk Pro")).toBe("kit_desk_pro");
+    expect(planFromBillingName("whatever")).toBe("free");
+  });
+});
+
+describe("csv", () => {
+  it("imports valid rows and reports unmatched / invalid ones", () => {
+    const skus = new Set(["GIFT", "JAR", "WAX"]);
+    const r = parseBomCsv("kit_sku,component_sku,qty_per_kit,waste_pct\nGIFT,JAR,2,0\nGIFT,WAX,0.35,5\nGIFT,NOPE,1,0\nGIFT,JAR,abc,0\nGIFT,JAR,1.2345,0", skus);
+    expect(r.rows).toHaveLength(2);
+    expect(r.unmatched).toEqual([{ line: 4, sku: "NOPE", role: "component" }]);
+    expect(r.errors.map((e) => e.line)).toEqual([5, 6]);
+  });
+  it("escapes quotes and neutralises formula injection on export", () => {
+    expect(toCsv([["a,b", '=cmd|"x"', 5]])).toBe(`"a,b","'=cmd|""x""",5`);
+  });
+});
+
+describe("replenishment", () => {
+  const c = { variantId: "JAR", onHand: 34, incoming: 0, burnPerDay: 6.2, leadTimeDays: 10, reorderPointOverride: null, packSize: 50 };
+  it("computes days of cover, reorder point and pack-rounded suggestion", () => {
+    expect(Math.round(daysOfCover(34, 6.2)!)).toBe(5);
+    expect(reorderPoint(c)).toBe(93);
+    expect(needsReorder(c)).toBe(true);
+    expect(suggestQty(c)).toBe(200); // 186 - 34 = 152 -> 4 packs of 50
+    expect(suggestQty({ ...c, onHand: 500 })).toBe(0);
+    expect(suggestQty({ ...c, incoming: 200 })).toBe(0);
+  });
+  it("PO state machine and receipt status", () => {
+    expect(canTransition("draft", "received")).toBe(false);
+    expect(canTransition("sent", "partially_received")).toBe(true);
+    expect(statusAfterReceipt([{ qtyOrdered: 10, qtyReceived: 4 }, { qtyOrdered: 5, qtyReceived: 5 }])).toBe("partially_received");
+    expect(statusAfterReceipt([{ qtyOrdered: 10, qtyReceived: 10 }])).toBe("received");
+  });
+  it("partial build warns when components cover fewer kits", () => {
+    const p = planBuild(10, { JAR: 20000, WAX: 3500 }, (v) => (v === "JAR" ? 7 : 100));
+    expect(p).toMatchObject({ buildable: 3, partial: true, limitingVariantId: "JAR" });
+    expect(p.consume).toEqual([{ variantId: "JAR", units: 6 }, { variantId: "WAX", units: 1 }]);
+  });
+});
