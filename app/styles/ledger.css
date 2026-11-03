@@ -305,3 +305,7 @@ body { font-variant-numeric: normal; }
 .dialog { border: 1px solid var(--ink); border-radius: var(--r-panel); background: var(--panel); color: var(--ink); padding: var(--s5); max-width: min(440px, calc(100vw - 2 * var(--s4))); }
 .dialog::backdrop { background: color-mix(in srgb, var(--ink) 55%, transparent); }
 .toast--polaris { background: transparent; border: 0; padding: 0; }
+
+/* Hit areas: inline links and sort buttons keep their look but get a 32px target. */
+main a:not(.btn), .sort { display: inline-flex; align-items: center; min-height: 32px; }
+main p a:not(.btn), main li a:not(.btn) { display: inline; min-height: 0; padding-block: var(--s2); margin-block: calc(-1 * var(--s2)); }
