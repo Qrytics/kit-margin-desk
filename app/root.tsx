@@ -1,6 +1,8 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
-import "@fontsource-variable/newsreader/opsz.css";
-import "@fontsource-variable/hanken-grotesk/wght.css";
+import "@fontsource-variable/schibsted-grotesk/index.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/600.css";
 import "./styles/ledger.css";
 
 export default function App() {
@@ -10,6 +12,7 @@ export default function App() {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <Meta />
+        <style>{"html,body{overflow-x:clip}"}</style>
         <Links />
       </head>
       <body>

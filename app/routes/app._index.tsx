@@ -6,6 +6,7 @@ import { handleAction } from "../server/route-helpers.server";
 import { healthCheck, kitRows, marginDesk, money, type KitRow, costAlerts } from "../core/views";
 import { explodeBom, indexKits } from "../core/bom";
 import { PLANS } from "../core/plans";
+import { Ruler } from "../components/Ruler";
 import { Empty, HealthStamp, PageHead, pct } from "../components/ui";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -101,7 +102,7 @@ export default function KitsHome() {
                 <tr>
                   <th scope="col">Kit</th><th scope="col">Mode</th><th scope="col" className="num">Parts</th><th scope="col" className="num">Can sell</th>
                   <th scope="col" className="num">Landed cost</th><th scope="col" className="num">Price</th><th scope="col" className="num">{sortBtn("marginCents", "Margin")}</th>
-                  <th scope="col" className="num">{sortBtn("marginPct", "Margin %")}</th><th scope="col" className="num">{sortBtn("units30", "30d units")}</th><th scope="col" className="num">{sortBtn("revenue30Cents", "30d revenue")}</th><th scope="col">Health</th>
+                  <th scope="col" className="num">{sortBtn("marginPct", "Margin %")}</th><th scope="col" className="num">{sortBtn("units30", "30d units")}</th><th scope="col" className="num">{sortBtn("revenue30Cents", "30d revenue")}</th><th scope="col">Where the price goes</th><th scope="col">Health</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,10 +118,11 @@ export default function KitsHome() {
                     <td className="num">{pct(r.marginPct)}</td>
                     <td className="num">{r.units30}</td>
                     <td className="num">{money(r.revenue30Cents)}</td>
+                    <td style={{ minWidth: 140 }}><Ruler parts={r.parts} size="mini" /></td>
                     <td><HealthStamp health={r.health} pct={r.marginPct} /></td>
                   </tr>
                 ))}
-                {rows.length === 0 ? <tr><td colSpan={11} className="muted">Nothing matches. {losing ? "No kits are losing money, which is the good outcome." : ""}</td></tr> : null}
+                {rows.length === 0 ? <tr><td colSpan={12} className="muted">Nothing matches. {losing ? "No kits are losing money, which is the good outcome." : ""}</td></tr> : null}
               </tbody>
             </table>
           </div>

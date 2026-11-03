@@ -8,6 +8,7 @@ import { marginFor, rollupCost } from "../core/margin";
 import { money, unitCostFn, primaryLocationId, variantLabel } from "../core/views";
 import { PLANS, planAllows } from "../core/plans";
 import { PageHead, Toast, HealthStamp, pct } from "../components/ui";
+import { Ruler } from "../components/Ruler";
 import { VariantPicker } from "../components/VariantPicker";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -81,6 +82,10 @@ export default function KitEditor() {
         sub={<>Landed cost <strong>{money(c.totalCents)}</strong> against a price of {money(price)}. {av.available !== null ? `You can sell ${av.available} right now.` : "No tracked part limits this kit."}</>}>
         <Link className="btn" to="/app">Back to kits</Link>
       </PageHead>
+
+      <section className="readout" aria-label="Where the price goes" style={{ marginBottom: 24 }}>
+        <Ruler size="big" parts={{ materialsCents: c.materialsCents, upliftCents: c.upliftCents, packagingCents: c.packagingCents, laborCents: c.laborCents, priceCents: price }} />
+      </section>
 
       <div className="cols">
         <div className="stack">
@@ -171,7 +176,7 @@ export default function KitEditor() {
           <section className="panel stack stack--tight">
             <h3>Actions</h3>
             <act.Form method="post"><input type="hidden" name="intent" value="push-cost" /><input type="hidden" name="kitId" value={d.kit.id} />
-              <button className="btn" disabled={act.state !== "idle"}>Push {money(c.totalCents)} to Shopify cost per item</button></act.Form>
+              <button className="btn" style={{ whiteSpace: "nowrap" }} disabled={act.state !== "idle"}>Push {money(c.totalCents)} to Shopify cost per item</button></act.Form>
             <span className="hint">Shopify currently holds {d.shopifyCostCents == null ? "no cost" : money(d.shopifyCostCents)} for this variant.</span>
             {cloneTo ? (
               <act.Form method="post" className="row"><input type="hidden" name="intent" value="clone-kit" /><input type="hidden" name="kitId" value={d.kit.id} /><input type="hidden" name="targetVariantId" value={cloneTo.id} />

@@ -36,6 +36,7 @@ export interface KitRow {
   units30: number;
   revenue30Cents: number;
   missingCosts: number;
+  parts: { materialsCents: number; upliftCents: number; packagingCents: number; laborCents: number; priceCents: number };
 }
 
 export function kitRows(s: Snapshot): KitRow[] {
@@ -60,6 +61,7 @@ export function kitRows(s: Snapshot): KitRow[] {
       costCents: c.totalCents, priceCents: price, marginCents: m.marginCents, marginPct: m.marginPct, health: m.health,
       units30: units, revenue30Cents: sold.reduce((a, x) => a + (x.qty - x.refundedQty) * x.unitPriceCents, 0),
       missingCosts: c.missingCosts.length,
+      parts: { materialsCents: c.materialsCents, upliftCents: c.upliftCents, packagingCents: c.packagingCents, laborCents: c.laborCents, priceCents: price },
     };
   });
 }

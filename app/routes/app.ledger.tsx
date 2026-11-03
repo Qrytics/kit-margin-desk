@@ -34,14 +34,14 @@ export default function Ledger() {
         return (
           <article key={b.id} className="batch" data-undone={b.undone}>
             <header>
-              <button className="sort" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : b.id)}><strong>{LABEL[b.sourceType] ?? b.sourceType}</strong> {b.sourceRef}</button>
+              <button className="sort" style={{ whiteSpace: "nowrap" }} aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : b.id)}><strong>{LABEL[b.sourceType] ?? b.sourceType}</strong> {b.sourceRef}</button>
               <span className="row">
                 <span className="muted">{when(b.at)}</span>
                 {b.undone ? <Stamp tone="quiet">Undone</Stamp> : b.sourceType === "undo" ? <Stamp tone="quiet">Reversal</Stamp> : <Stamp tone={skipped ? "warn" : "ok"}>{skipped ? `${skipped} skipped` : "Applied"}</Stamp>}
                 {!b.undone && b.sourceType !== "undo" ? (
                   <f.Form method="post"><input type="hidden" name="batchId" value={b.id} />
                     <button className="btn btn--small" name="intent" value="undo" disabled={f.state !== "idle"}>Undo batch</button>
-                    {stuck ? <button className="btn btn--small btn--danger" name="intent" value="undo-compensate" style={{ marginLeft: 8 }}>Apply compensating adjustment</button> : null}
+                    {stuck ? <button className="btn btn--small btn--danger" name="intent" value="undo-compensate" style={{ whiteSpace: "nowrap", marginLeft: 8 }}>Apply compensating adjustment</button> : null}
                   </f.Form>
                 ) : null}
               </span>

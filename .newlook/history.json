@@ -3,7 +3,40 @@
     {
       "date": "2026-11-03",
       "direction": "ledger",
-      "why": "Kit costs and stock adjustments are a record of truth; warm paper ledger with verdict titles suits trust-first margin desk"
+      "why": "Kit costs and stock adjustments are a record of truth; warm paper ledger with verdict titles suits trust-first margin desk",
+      "fingerprint": {
+        "fonts": [
+          "hanken-grotesk",
+          "newsreader"
+        ],
+        "colors": [
+          "#f5f1e8",
+          "#a82b12",
+          "#1c1b18",
+          "#fbf9f3",
+          "#ece6d8",
+          "#4a463d"
+        ]
+      }
+    },
+    {
+      "date": "2026-11-03",
+      "direction": "bench",
+      "why": "ledger collided with the sibling price-editor project; a light instrument panel with a hero readout and a price-to-cost ruler fits a margin desk",
+      "fingerprint": {
+        "fonts": [
+          "martian-mono",
+          "schibsted-grotesk"
+        ],
+        "colors": [
+          "#f2efe8",
+          "#e4e1d9",
+          "#0b6e6a",
+          "#17181a",
+          "#b83f12",
+          "#d9d5ca"
+        ]
+      }
     }
   ]
 }

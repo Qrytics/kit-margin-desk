@@ -19,14 +19,15 @@
     "node": ">=20.19 <22 || >=22.12"
   },
   "dependencies": {
-    "@fontsource-variable/hanken-grotesk": "^5.3.0",
-    "@fontsource-variable/newsreader": "^5.3.0",
+    "@fontsource-variable/schibsted-grotesk": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "@prisma/client": "^6.19.3",
     "@react-router/fs-routes": "^7.18.5",
     "@react-router/node": "^7.18.5",
     "@react-router/serve": "^7.18.5",
     "@shopify/app-bridge-react": "^4.2.14",
     "@shopify/shopify-app-react-router": "^4.0.0",
+    "@shopify/shopify-app-session-storage-memory": "^8.0.1",
     "@shopify/shopify-app-session-storage-prisma": "^11.0.1",
     "isbot": "^5.2.2",
     "react": "^18.3.1",

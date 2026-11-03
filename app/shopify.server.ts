@@ -7,6 +7,7 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
+import { MemorySessionStorage } from "@shopify/shopify-app-session-storage-memory";
 import prisma from "./db.server";
 import { PLANS } from "./core/plans";
 
@@ -27,14 +28,17 @@ export const BILLING_PLANS: Record<string, BillingPlan> = {
   [PLANS.plus.billingName!]: recurring(PLANS.plus.monthlyUsd, PLANS.plus.trialDays),
 };
 
+// DEMO_MODE boots without credentials so the UI can be exercised offline; real mode requires all env vars.
+const demo = process.env.DEMO_MODE === "true";
+
 const shopify = shopifyApp({
-  apiKey: process.env.SHOPIFY_API_KEY,
-  apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
+  apiKey: process.env.SHOPIFY_API_KEY || (demo ? "demo" : undefined),
+  apiSecretKey: process.env.SHOPIFY_API_SECRET || (demo ? "demo" : ""),
   apiVersion: API_VERSION,
-  scopes: process.env.SCOPES?.split(","),
-  appUrl: process.env.SHOPIFY_APP_URL || "",
+  scopes: (process.env.SCOPES || (demo ? "read_products" : "")).split(",").filter(Boolean),
+  appUrl: process.env.SHOPIFY_APP_URL || (demo ? "http://localhost:3000" : ""),
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  sessionStorage: demo ? new MemorySessionStorage() : new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   billing: BILLING_PLANS,
   future: {},
