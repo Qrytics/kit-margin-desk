@@ -1,0 +1,58 @@
+# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+client_id = "REPLACE_WITH_CLIENT_ID"
+name = "Kit Margin Desk"
+application_url = "https://example.trycloudflare.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhooks/app/subscriptions"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create", "orders/updated", "orders/cancelled" ]
+  uri = "/webhooks/orders"
+
+  [[webhooks.subscriptions]]
+  topics = [ "refunds/create" ]
+  uri = "/webhooks/refunds"
+
+  [[webhooks.subscriptions]]
+  topics = [ "fulfillments/create" ]
+  uri = "/webhooks/fulfillments"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/update", "products/delete" ]
+  uri = "/webhooks/products"
+
+  [[webhooks.subscriptions]]
+  topics = [ "inventory_levels/update" ]
+  uri = "/webhooks/inventory"
+
+  # Mandatory GDPR webhooks
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+  uri = "/webhooks/gdpr"
+
+[access_scopes]
+scopes = "read_products,write_products,read_inventory,write_inventory,read_orders,read_locations,read_fulfillments"
+
+[auth]
+redirect_urls = [ "https://example.trycloudflare.com/auth/callback" ]
+
+[pos]
+embedded = false
