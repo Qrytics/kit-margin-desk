@@ -297,3 +297,37 @@ describe("replenishment", () => {
     expect(p.consume).toEqual([{ variantId: "JAR", units: 6 }, { variantId: "WAX", units: 1 }]);
   });
 });
+
+describe("cancel + cancel-restock refund", () => {
+  it("does not double restore when a cancel also produces a restock_type=cancel refund", () => {
+    const r = run([order(5), { type: "cancel", unfulfilledQty: 5 }, refund("rc", 5, "cancel")]);
+    expect(r.stock.get("JAR")).toBe(1000);
+  });
+});
+
+import { componentRows, dryRun, healthCheck, kitRows, marginDesk } from "../app/core/views";
+import { demoSnapshot } from "../app/server/demo";
+
+describe("views over the demo snapshot", () => {
+  const snap = demoSnapshot();
+  it("lists kits with a losing-money kit", () => {
+    const rows = kitRows(snap);
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    expect(rows.some((r) => r.health === "red" && r.marginCents < 0)).toBe(true);
+    expect(rows.some((r) => r.health === "green")).toBe(true);
+  });
+  it("health check finds the duplicate-SKU trap and the tracking-off component", () => {
+    const h = healthCheck(Object.values(snap.variants));
+    expect(h.duplicateSkus.length).toBe(1);
+    expect(h.syncBlocked).toBe(true);
+    expect(h.untracked.length).toBeGreaterThan(0);
+  });
+  it("dry run shows adjustments and desk rolls up", () => {
+    const d = dryRun(snap);
+    expect(d.length).toBeGreaterThan(0);
+    expect(d[0].adjustments.every((a) => a.delta < 0)).toBe(true);
+    const desk = marginDesk(snap, 30);
+    expect(desk.totalRevenueCents).toBeGreaterThan(0);
+    expect(componentRows(snap).some((c) => c.reorder)).toBe(true);
+  });
+});

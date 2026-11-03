@@ -42,7 +42,9 @@ export type LineEvent =
   | { type: "cancel"; unfulfilledQty: number };
 
 /** Only these restock types put components back on the shelf (spec 4.2). */
-export const RESTOCKING_TYPES = new Set(["restock", "return", "RESTOCK", "RETURN", "cancel", "CANCEL"]);
+export const RESTOCKING_TYPES = new Set(["restock", "return", "RESTOCK", "RETURN"]);
+// restock_type "cancel" is deliberately NOT here: a cancel-with-restock also fires orders/cancelled,
+// which is tracked through cancelledQty. Counting both would double-restore.
 
 export function applyEvent(s: LineState, e: LineEvent): LineState {
   const next: LineState = { ...s, refunds: { ...s.refunds } };
@@ -51,6 +53,7 @@ export function applyEvent(s: LineState, e: LineEvent): LineState {
   } else if (e.type === "refund") {
     // NO_RESTOCK refunds are recorded as 0 restocked units: no phantom components.
     next.refunds[e.refundLineId] = RESTOCKING_TYPES.has(e.restockType) ? e.qty : 0;
+    // (refund ids are unique per refund line, so a replayed webhook overwrites rather than adds)
   } else if (e.type === "cancel") {
     next.cancelledQty = Math.max(next.cancelledQty, e.unfulfilledQty);
   }
